@@ -1382,27 +1382,12 @@ export async function runChatStreamTurn(opts: RunChatStreamTurnOptions): Promise
           .update({ updated_at: new Date().toISOString(), mode: dbMode } as any)
           .eq("id", resolvedConversationId);
         window.dispatchEvent(new CustomEvent("megsy:conversations-changed"));
-        try {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          if (session?.access_token && assistantContent && userInput) {
-            void supabase.functions
-              .invoke("openrouter-media", {
-                headers: { Authorization: `Bearer ${session.access_token}` },
-                body: {
-                  kind: "extract_memory",
-                  user_message: userInput,
-                  assistant_reply: assistantContent.slice(0, 4000),
-                  conversation_id: resolvedConversationId,
-                  message_id: aId,
-                },
-              })
-              .catch(() => {});
-          }
-        } catch {
-          /* ignore */
-        }
+        // Long-term memory extraction runs exactly once per turn, in
+        // onComplete via the dedicated `memory-extract` function. The old
+        // duplicate call to `openrouter-media` (kind: extract_memory) fired
+        // for the same turn, doubling the model cost and racing the other
+        // writer for the same facts — removed on purpose.
+
       }
     },
     onError: (err) => {
