@@ -458,7 +458,7 @@ export async function advanceDevRun(
 
     const doneFiles = written.get(task.id) ?? [];
     const askCoder = (extra: string, assistantSoFar?: string) =>
-      askModel(token, CODER_SYSTEM, [
+      askModel(token, coderSystem, [
         {
           role: "user",
           content: [
