@@ -337,6 +337,61 @@ export class DevWorkspace {
   }
 
   /**
+   * TypeScript check without emitting. Cheaper and far more precise than a
+   * full build, so the verifier runs it first. Projects without TypeScript
+   * simply report success.
+   */
+  async typecheck(): Promise<ExecResult> {
+    return this.bash(
+      "test -f tsconfig.json || { echo 'no tsconfig — skipped'; exit 0; }; " +
+        "npx --yes tsc --noEmit > /tmp/tsc.log 2>&1; code=$?; tail -60 /tmp/tsc.log; exit $code",
+      300_000,
+    );
+  }
+
+  /** ESLint, only when the project actually configures it. */
+  async lint(): Promise<ExecResult> {
+    return this.bash(
+      "ls eslint.config.* .eslintrc* > /dev/null 2>&1 || { echo 'no eslint config — skipped'; exit 0; }; " +
+        "npx --yes eslint src --max-warnings=0 > /tmp/lint.log 2>&1; code=$?; tail -60 /tmp/lint.log; exit $code",
+      300_000,
+    );
+  }
+
+  /** Runs the project's tests when a test script exists. */
+  async runTests(): Promise<ExecResult> {
+    return this.bash(
+      "grep -q '\"test\"' package.json 2>/dev/null || { echo 'no test script — skipped'; exit 0; }; " +
+        "CI=1 npm test --silent -- --run > /tmp/test.log 2>&1; code=$?; tail -60 /tmp/test.log; exit $code",
+      300_000,
+    );
+  }
+
+  /** ripgrep-style source search so the coder stops reading whole files. */
+  async searchFiles(query: string, path = "src"): Promise<ExecResult> {
+    const safePath = path.replace(/[^\w./-]/g, "") || "src";
+    return this.bash(
+      `grep -rnI --exclude-dir=node_modules --exclude-dir=dist -E ${JSON.stringify(query)} ${JSON.stringify(safePath)} 2>/dev/null | head -60`,
+      60_000,
+    );
+  }
+
+  /** Read-only git inspection (status | diff | log). */
+  async git(command: string): Promise<ExecResult> {
+    const map: Record<string, string> = {
+      status: "git status --short | head -60",
+      diff: "git --no-pager diff --stat | head -60",
+      log: "git --no-pager log --oneline -20",
+    };
+    const cmd = map[command.trim().toLowerCase()];
+    if (!cmd) {
+      return { exitCode: 1, stdout: "", stderr: "git supports only: status | diff | log" };
+    }
+    return this.bash(`test -d .git || { echo 'not a git repo'; exit 0; }; ${cmd}`, 60_000);
+  }
+
+
+  /**
    * Installs every bare package the source imports but that is not in
    * node_modules. The coder frequently imports a library (react-icons,
    * zustand, …) without installing it, which serves a blank page.
