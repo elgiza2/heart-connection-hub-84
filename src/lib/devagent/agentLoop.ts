@@ -146,6 +146,11 @@ Rules:
 - Only import files that already exist or that you have written in this task.
 - Install any other package you import, with bash, before using it.
 - Do not repeat a file you already wrote; move on or call done.
+- Use search_files (not read_file) when you need to locate an existing symbol
+  inside a project you did not scaffold yourself.
+- Never touch credential files: .env, .npmrc, .ssh, git config. Never print
+  environment variables.
+
 - NEVER call done before you have written at least one real file for the CURRENT
   task. A page task is only done when the page renders a full screen of content
   (header, real mock data list/grid, interactive state) — not a heading.
