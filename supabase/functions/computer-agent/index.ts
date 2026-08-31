@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const result = await handleComputerAgent({ ...payload, token });
-    return json(result.body, result.status);
+    return json(req, result.body, result.status);
   } catch (error) {
     console.error(error);
     const message = error instanceof Error ? error.message : "server_error";
