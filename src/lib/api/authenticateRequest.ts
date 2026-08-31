@@ -1,4 +1,5 @@
 import { createClient, type User } from "@supabase/supabase-js";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./supabaseServerConfig";
 
 export interface AuthenticatedRequest {
   user: User;
@@ -7,11 +8,9 @@ export interface AuthenticatedRequest {
 export async function authenticateRequest(request: Request): Promise<AuthenticatedRequest | null> {
   const header = request.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  const url = process.env.SUPABASE_URL;
-  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (!token || !url || !publishableKey) return null;
+  if (!token) return null;
 
-  const client = createClient(url, publishableKey, {
+  const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data, error } = await client.auth.getUser(token);
@@ -22,11 +21,18 @@ export async function authenticateRequest(request: Request): Promise<Authenticat
 export function apiHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("origin");
   const allowed = new Set(
-    [process.env.APP_URL, process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null]
+    [
+      process.env.APP_URL,
+      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+      // Production origins, so the API works with zero env configuration.
+      "https://megsyai.com",
+      "https://www.megsyai.com",
+    ]
       .filter(Boolean)
       .map(String),
   );
   if (origin?.endsWith(".lovable.app")) allowed.add(origin);
+  if (origin?.endsWith(".vercel.app")) allowed.add(origin);
   if (process.env.NODE_ENV !== "production" && origin?.startsWith("http://localhost:")) allowed.add(origin);
 
   return {
