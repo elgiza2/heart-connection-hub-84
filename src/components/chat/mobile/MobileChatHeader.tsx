@@ -162,17 +162,8 @@ export default function MobileChatHeader({
 }: MobileChatHeaderProps) {
   const [open, setOpen] = useState(false);
   const [menuView, setMenuView] = useState<MenuView>("main");
-  const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const el = scrollContainerRef?.current;
-    if (!el) return;
-    const onScroll = () => setScrolled(el.scrollTop > 2);
-    onScroll();
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [scrollContainerRef]);
 
   const lang = useUserLang();
   const prefetchPricing = () => {
