@@ -17,7 +17,15 @@ Deno.serve(async (req) => {
     req.headers.get("x-agent-tick-secret") ??
     new URL(req.url).searchParams.get("secret") ??
     "";
-  if (expected && provided !== expected) {
+  // Fail closed: without a configured secret this endpoint would run with the
+  // service role and be callable by anyone who knows the URL.
+  if (!expected) {
+    return new Response(JSON.stringify({ error: "Server misconfigured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (provided !== expected) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
