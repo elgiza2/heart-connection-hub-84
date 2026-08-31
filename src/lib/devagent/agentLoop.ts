@@ -298,7 +298,47 @@ function parseJsonToolCalls(text: string): (ToolCall & { summary?: string })[] {
 }
 
 
+/**
+ * Asks the coder for ONE repair tool call and executes it.
+ * Shared by the typecheck, build and runtime-issue repair loops so all three
+ * behave identically (continuation on cut-off replies, event logging).
+ * Returns true when a tool actually ran.
+ */
+async function repairWithModel(
+  db: SupabaseClient,
+  run: RunRow,
+  ws: DevWorkspace,
+  token: string,
+  system: string,
+  instruction: string,
+  label: string,
+): Promise<boolean> {
+  let raw = await askModel(token, system, [
+    {
+      role: "user",
+      content: `${instruction}\n\nReply with ONE tool call in the line format, finishing with <<<END>>>.\n\nPROJECT FILES:\n${await ws.tree()}`,
+    },
+  ]);
+  for (let c = 0; c < 4 && raw && !raw.includes("<<<END>>>"); c++) {
+    const more = await askModel(token, system, [
+      { role: "user", content: "Continue the cut-off reply exactly where it stopped, raw code only, finish with <<<END>>>." },
+      { role: "assistant", content: raw.slice(-4000) },
+    ]);
+    if (!more) break;
+    raw += more;
+  }
+  const fix = parseToolReply(raw)[0];
+  if (!fix?.tool || fix.tool === "done") return false;
+  const result = await runTool(ws, fix);
+  await event(db, run, "tool", `${label} ${fix.tool} ${fix.path ?? ""}`.trim(), {
+    ok: result.ok,
+    output: result.output.slice(0, 2000),
+  });
+  return true;
+}
+
 /** Runs one bounded slice. Returns true when the whole run is finished. */
+
 export async function advanceDevRun(
   db: SupabaseClient,
   run: RunRow,
