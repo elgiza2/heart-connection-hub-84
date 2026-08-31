@@ -21,7 +21,10 @@ export interface ToolCall {
   path?: string;
   content?: string;
   command?: string;
+  /** search_files pattern. */
+  query?: string;
   message?: string;
+
   [key: string]: unknown;
 }
 
