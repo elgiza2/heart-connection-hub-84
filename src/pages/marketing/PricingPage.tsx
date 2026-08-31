@@ -244,7 +244,8 @@ const PricingPage = () => {
     add("https://fonts.googleapis.com", "preconnect");
     add("https://fonts.gstatic.com", "preconnect");
     add("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&display=swap");
-    add("https://db.onlinewebfonts.com/c/2bf40ab72ea4897a3fd9b6e48b233a19?family=Garamond");
+    // Served by Google Fonts: the previous onlinewebfonts file failed OTS parsing.
+    add("https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap");
     return () => {
       links.forEach((l) => l.parentNode && l.parentNode.removeChild(l));
     };
