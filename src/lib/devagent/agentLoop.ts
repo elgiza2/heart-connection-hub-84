@@ -99,8 +99,23 @@ TOOL: list_dir
 PATH: src
 <<<END>>>
 
+TOOL: search_files
+QUERY: useCart\(
+PATH: src
+<<<END>>>
+
+TOOL: git
+CMD: status
+<<<END>>>
+
 TOOL: delete_file
 PATH: src/old.tsx
+<<<END>>>
+
+TOOL: typecheck
+<<<END>>>
+
+TOOL: run_tests
 <<<END>>>
 
 TOOL: build
@@ -109,6 +124,7 @@ TOOL: build
 TOOL: done
 SUMMARY: <what you changed>
 <<<END>>>
+
 
 Always finish with the literal line <<<END>>>. If your reply gets cut off before it,
 you will be asked to continue exactly where you stopped — continue with raw code only.
