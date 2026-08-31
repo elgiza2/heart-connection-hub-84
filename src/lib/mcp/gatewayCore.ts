@@ -55,11 +55,25 @@ type Result = { status: number; body: Record<string, unknown> };
 const ok = (body: Record<string, unknown> = {}): Result => ({ status: 200, body: { ok: true, ...body } });
 const fail = (status: number, error: string): Result => ({ status, body: { ok: false, error } });
 
-function db(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Server misconfigured");
-  return createClient(url, key, { auth: { persistSession: false } });
+/** Server client. Prefers the service key; falls back to the anon key scoped to
+ *  the caller's JWT (RLS keeps every row owner-scoped anyway), so the gateway
+ *  keeps working on deployments where the service key was never configured. */
+function db(userToken?: string): SupabaseClient {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const anon =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url) throw new Error("Server misconfigured");
+  if (service) return createClient(url, service, { auth: { persistSession: false } });
+  if (anon && userToken) {
+    return createClient(url, anon, {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: `Bearer ${userToken}` } },
+    });
+  }
+  throw new Error("Server misconfigured");
 }
 
 function redirectUri(origin?: string): string {
@@ -264,11 +278,9 @@ export async function handleMcpGateway(payload: GatewayPayload | null): Promise<
   if (!payload?.action) return fail(400, "Missing action");
   let supabase: SupabaseClient;
   try {
-    supabase = db();
+    supabase = db(payload.token);
   } catch {
-    // Missing SUPABASE_SERVICE_ROLE_KEY on this deployment: the feature is
-    // unavailable, not crashed — report it as such with an actionable message.
-    return fail(503, "Tool servers are unavailable: the server is missing its Supabase service key.");
+    return fail(503, "Tool servers are unavailable: the server is missing its Supabase configuration.");
   }
 
 

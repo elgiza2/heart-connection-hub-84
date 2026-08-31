@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type RefObject } from "react";
+import { useState, type RefObject } from "react";
 import { AnimatePresence, m as motion } from "framer-motion";
 
 import { useNavigate } from "react-router-dom";
@@ -154,7 +154,6 @@ export default function MobileChatHeader({
   rightSlot,
   modelSlot,
   chatUserId,
-  scrollContainerRef,
   inlineRename,
 
   inlineInvite,
@@ -162,17 +161,8 @@ export default function MobileChatHeader({
 }: MobileChatHeaderProps) {
   const [open, setOpen] = useState(false);
   const [menuView, setMenuView] = useState<MenuView>("main");
-  const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const el = scrollContainerRef?.current;
-    if (!el) return;
-    const onScroll = () => setScrolled(el.scrollTop > 2);
-    onScroll();
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [scrollContainerRef]);
 
   const lang = useUserLang();
   const prefetchPricing = () => {
@@ -238,22 +228,24 @@ export default function MobileChatHeader({
             <MegsySidebarToggleIcon />
         </button>
 
-        <div className={`flex min-w-0 items-center transition-all duration-200 ${scrolled ? "mx-auto" : ""}`}>
+        {/* Layout stays identical whether or not the list is scrolled: moving
+            these around mid-scroll made the agent selector jump and produced a
+            visible shake right after the first message. */}
+        <div className="flex min-w-0 items-center">
           {modelSlot}
         </div>
 
-        {!scrolled && <div className="flex-1" />}
+        <div className="flex-1" />
 
-        {/* Caller-provided actions (e.g. an upgrade CTA). The prop was declared
-            but never rendered, so anything passed in silently disappeared. */}
-        {!scrolled && rightSlot}
+        {/* Caller-provided actions (e.g. an upgrade CTA). */}
+        {rightSlot}
 
-        {!scrolled && chatUserId && (
+        {chatUserId && (
           <UpgradePlanButton variant="compact" hideCredits />
         )}
 
 
-        {!scrolled && !chatUserId && (
+        {!chatUserId && (
           <button
             type="button"
             onClick={() => navigate("/auth")}
