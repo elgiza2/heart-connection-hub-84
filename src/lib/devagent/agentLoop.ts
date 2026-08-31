@@ -765,6 +765,23 @@ export async function advanceDevRun(
     output: build.stdout.slice(-2000),
   });
 
+  // Stage 3: run the project's own tests when it has any. Failures are
+  // reported, not fatal — a green build still ships, the user decides.
+  if (buildOk) {
+    const tests = await ws.runTests();
+    const skipped = /no test script/.test(tests.stdout);
+    if (!skipped) {
+      await event(
+        db,
+        run,
+        tests.exitCode === 0 ? "tests_ok" : "tests_failed",
+        tests.exitCode === 0 ? "الاختبارات ناجحة" : "بعض الاختبارات فشلت",
+        { output: `${tests.stdout}\n${tests.stderr}`.slice(-2000) },
+      );
+    }
+  }
+
+
   // -------------------------------------------- private GitHub persistence
   await ws.startDevServer();
   let commit: string | null = null;
