@@ -34,10 +34,10 @@ const json = (req: Request, body: unknown, status = 200) =>
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsFor(req) });
 
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return json(req, { error: "Method not allowed" }, 405);
 
   const payload = (await req.json().catch(() => null)) as ComputerPayload | null;
-  if (!payload) return json({ error: "Invalid JSON body" }, 400);
+  if (!payload) return json(req, { error: "Invalid JSON body" }, 400);
 
   // The caller's Supabase access token authenticates the request; agentCore
   // verifies it against auth.users before touching any data.
@@ -50,6 +50,6 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error(error);
     const message = error instanceof Error ? error.message : "server_error";
-    return json({ error: message }, 500);
+    return json(req, { error: message }, 500);
   }
 });
