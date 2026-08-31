@@ -242,10 +242,16 @@ async function plan(token: string, prompt: string, tree: string): Promise<string
 
 /**
  * Parses the coder's line protocol. Tolerates a missing trailing `<<<END>>>`
- * (a cut-off reply still yields the partial file, which is better than nothing)
- * and stray markdown fences.
+ * (a cut-off reply still yields the partial file, which is better than nothing),
+ * stray markdown fences, and models that answer with a JSON tool call instead.
+ *
+ * The old 4-block cap silently dropped work when a model batched more calls;
+ * the cap now matches the executor's per-slice budget.
  */
-export function parseToolReply(raw: string): (ToolCall & { summary?: string })[] {
+export function parseToolReply(
+  raw: string,
+  maxCalls = MAX_TOOLS_PER_SLICE,
+): (ToolCall & { summary?: string })[] {
   if (!raw) return [];
   const text = raw.replace(/```[a-zA-Z]*\n?/g, "");
   const blocks = text.split("<<<END>>>").map((b) => b.trim()).filter(Boolean);
@@ -256,6 +262,7 @@ export function parseToolReply(raw: string): (ToolCall & { summary?: string })[]
     const tool = toolMatch[1] as ToolCall["tool"];
     const path = block.match(/^\s*PATH:\s*(.+)$/m)?.[1]?.trim();
     const command = block.match(/^\s*CMD:\s*(.+)$/m)?.[1]?.trim();
+    const query = block.match(/^\s*QUERY:\s*(.+)$/m)?.[1]?.trim();
     const summary = block.match(/^\s*SUMMARY:\s*([\s\S]*)$/m)?.[1]?.trim();
     let content: string | undefined;
     const bodyIdx = block.indexOf("\nBODY:");
@@ -263,11 +270,31 @@ export function parseToolReply(raw: string): (ToolCall & { summary?: string })[]
       content = block.slice(bodyIdx + "\nBODY:".length).replace(/^\n/, "");
     }
     if (tool === "write_file" && (!path || !content)) continue;
-    calls.push({ tool, path, command, content, summary } as ToolCall & { summary?: string });
-    if (calls.length >= 4) break;
+    calls.push({ tool, path, command, query, content, summary } as ToolCall & { summary?: string });
+    if (calls.length >= maxCalls) break;
+  }
+  if (!calls.length) {
+    const fromJson = parseJsonToolCalls(text);
+    if (fromJson.length) return fromJson.slice(0, maxCalls);
   }
   return calls;
 }
+
+/** Fallback for models that emit `{"tool":"write_file", ...}` JSON objects. */
+function parseJsonToolCalls(text: string): (ToolCall & { summary?: string })[] {
+  const calls: (ToolCall & { summary?: string })[] = [];
+  const candidates = text.match(/\{[\s\S]*?"tool"\s*:\s*"[\w_]+"[\s\S]*?\}/g) ?? [];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as ToolCall & { summary?: string };
+      if (parsed && typeof parsed.tool === "string") calls.push(parsed);
+    } catch {
+      // Ignore partial/invalid JSON; the text protocol stays authoritative.
+    }
+  }
+  return calls;
+}
+
 
 /** Runs one bounded slice. Returns true when the whole run is finished. */
 export async function advanceDevRun(
