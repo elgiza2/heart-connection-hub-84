@@ -505,7 +505,7 @@ const PricingPage = () => {
               }}
             >
               <style>{`
-        .font-garamond { font-family: 'Garamond', 'Times New Roman', serif; }
+        .font-garamond { font-family: 'EB Garamond', Garamond, 'Times New Roman', serif; }
 
         /* ---- Light-theme remap: match the chat light surface ---- */
         html[data-theme="light"] [data-pricing-scope] { background: hsl(var(--background)) !important; }
