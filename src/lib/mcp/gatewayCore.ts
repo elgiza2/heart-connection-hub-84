@@ -278,11 +278,9 @@ export async function handleMcpGateway(payload: GatewayPayload | null): Promise<
   if (!payload?.action) return fail(400, "Missing action");
   let supabase: SupabaseClient;
   try {
-    supabase = db();
+    supabase = db(payload.token);
   } catch {
-    // Missing SUPABASE_SERVICE_ROLE_KEY on this deployment: the feature is
-    // unavailable, not crashed — report it as such with an actionable message.
-    return fail(503, "Tool servers are unavailable: the server is missing its Supabase service key.");
+    return fail(503, "Tool servers are unavailable: the server is missing its Supabase configuration.");
   }
 
 
