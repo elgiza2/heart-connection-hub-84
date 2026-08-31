@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { runMediaPlan, regenerateScene } from "@/lib/mediaGeneration";
 import { updateMessageMetadata } from "../services/conversationApi";
+import { CREDITS_CHANGED_EVENT } from "@/hooks/useCredits";
 import { MediaResultCard } from "../lazyComponents";
 import type { Message } from "../chatConstants";
 
@@ -126,6 +127,8 @@ export default function AssistantMediaBlock({ msg, setMessages, setInput, setIsL
       activeMediaGenerations.delete(generationKey);
       setIsLoading(false);
       setIsThinking(false);
+      // Generation spends credits server-side — refresh the header balance.
+      window.dispatchEvent(new Event(CREDITS_CHANGED_EVENT));
     }
   }, [msg.id, msg.mediaPlan, msg.mediaResults, matches, setMessages, setIsLoading, setIsThinking, targetKey]);
 

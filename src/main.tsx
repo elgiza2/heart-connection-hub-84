@@ -12,12 +12,30 @@ const loadMotionFeatures = () => import("framer-motion").then((m) => m.domMax);
 // usually already in memory — no route-level loading state is ever painted.
 // First visit ever → show the onboarding showcase instead of the chat.
 // Runs before the router mounts so no chat frame is ever painted first.
+const __hasSession = () => {
+  try {
+    if (localStorage.getItem("megsy_last_user_id")) return true;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("sb-") && k.endsWith("-auth-token") && localStorage.getItem(k)) {
+        return true;
+      }
+    }
+  } catch {}
+  return false;
+};
+
 const __firstVisitWelcome = (() => {
   try {
     if (typeof window === "undefined") return false;
     const p = window.location.pathname.replace(/\/+$/, "") || "/";
     if (p !== "/" && p !== "/index" && p !== "/chat") return false;
     if (localStorage.getItem("megsy_seen_welcome")) return false;
+    // Signed-in users never see the first-run showcase, even on a new browser.
+    if (__hasSession()) {
+      localStorage.setItem("megsy_seen_welcome", "1");
+      return false;
+    }
     localStorage.setItem("megsy_seen_welcome", "1");
     window.history.replaceState(window.history.state, "", "/welcome");
     return true;
