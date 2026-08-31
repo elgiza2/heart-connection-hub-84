@@ -126,6 +126,8 @@ export default function AssistantMediaBlock({ msg, setMessages, setInput, setIsL
       activeMediaGenerations.delete(generationKey);
       setIsLoading(false);
       setIsThinking(false);
+      // Generation spends credits server-side — refresh the header balance.
+      window.dispatchEvent(new Event(CREDITS_CHANGED_EVENT));
     }
   }, [msg.id, msg.mediaPlan, msg.mediaResults, matches, setMessages, setIsLoading, setIsThinking, targetKey]);
 
