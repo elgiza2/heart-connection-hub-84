@@ -404,12 +404,29 @@ export async function advanceDevRun(
   }
 
   // ---------------------------------------------------------------- coding
+  // The project can carry its own rules (AGENTS.md, .agents/skills/*). They
+  // were previously ignored at runtime; load them once per slice and append
+  // them to the coder system prompt so repo conventions win over defaults.
+  let coderSystem = CODER_SYSTEM;
+  try {
+    const projectContext = await loadProjectContext(ws, run.prompt);
+    if (projectContext.prompt) {
+      coderSystem = `${CODER_SYSTEM}\n\n${projectContext.prompt}`;
+      await event(db, run, "context", "قواعد المشروع محمّلة", {
+        ruleFiles: projectContext.ruleFiles,
+        skills: projectContext.skills.map((s) => s.name),
+      });
+    }
+  } catch {
+    // Context is a bonus, never a blocker.
+  }
   const noToolCall = new Map<string, number>();
   /** Files already read this slice — re-reads are the classic stall loop. */
   const readOnce = new Set<string>();
   /** Files written per task — rewriting the same file forever is the other stall. */
   const written = new Map<string, string[]>();
   while (Date.now() - started < SLICE_MS) {
+
     const task = tasks.find((t) => t.status !== "done" && t.status !== "failed");
     if (!task) break;
 
