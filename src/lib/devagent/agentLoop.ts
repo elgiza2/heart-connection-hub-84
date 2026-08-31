@@ -10,6 +10,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { FreestyleClient } from "./freestyle";
 import { DevWorkspace, runTool, screenshotUrl, type ToolCall } from "./tools";
 import { askJson, askModel, lastModelError } from "./llm";
+import { loadProjectContext } from "../agent/projectContext";
+
 import {
   ensurePrivateGithubRepo,
   restoreWorkspaceFromGithub,
