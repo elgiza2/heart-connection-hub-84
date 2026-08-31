@@ -10,6 +10,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { FreestyleClient } from "./freestyle";
 import { DevWorkspace, runTool, screenshotUrl, type ToolCall } from "./tools";
 import { askJson, askModel, lastModelError } from "./llm";
+import { loadProjectContext } from "../agent/projectContext";
+
 import {
   ensurePrivateGithubRepo,
   restoreWorkspaceFromGithub,
@@ -99,8 +101,23 @@ TOOL: list_dir
 PATH: src
 <<<END>>>
 
+TOOL: search_files
+QUERY: useCart\(
+PATH: src
+<<<END>>>
+
+TOOL: git
+CMD: status
+<<<END>>>
+
 TOOL: delete_file
 PATH: src/old.tsx
+<<<END>>>
+
+TOOL: typecheck
+<<<END>>>
+
+TOOL: run_tests
 <<<END>>>
 
 TOOL: build
@@ -109,6 +126,7 @@ TOOL: build
 TOOL: done
 SUMMARY: <what you changed>
 <<<END>>>
+
 
 Always finish with the literal line <<<END>>>. If your reply gets cut off before it,
 you will be asked to continue exactly where you stopped — continue with raw code only.
@@ -130,6 +148,11 @@ Rules:
 - Only import files that already exist or that you have written in this task.
 - Install any other package you import, with bash, before using it.
 - Do not repeat a file you already wrote; move on or call done.
+- Use search_files (not read_file) when you need to locate an existing symbol
+  inside a project you did not scaffold yourself.
+- Never touch credential files: .env, .npmrc, .ssh, git config. Never print
+  environment variables.
+
 - NEVER call done before you have written at least one real file for the CURRENT
   task. A page task is only done when the page renders a full screen of content
   (header, real mock data list/grid, interactive state) — not a heading.
@@ -221,10 +244,16 @@ async function plan(token: string, prompt: string, tree: string): Promise<string
 
 /**
  * Parses the coder's line protocol. Tolerates a missing trailing `<<<END>>>`
- * (a cut-off reply still yields the partial file, which is better than nothing)
- * and stray markdown fences.
+ * (a cut-off reply still yields the partial file, which is better than nothing),
+ * stray markdown fences, and models that answer with a JSON tool call instead.
+ *
+ * The old 4-block cap silently dropped work when a model batched more calls;
+ * the cap now matches the executor's per-slice budget.
  */
-export function parseToolReply(raw: string): (ToolCall & { summary?: string })[] {
+export function parseToolReply(
+  raw: string,
+  maxCalls = MAX_TOOLS_PER_SLICE,
+): (ToolCall & { summary?: string })[] {
   if (!raw) return [];
   const text = raw.replace(/```[a-zA-Z]*\n?/g, "");
   const blocks = text.split("<<<END>>>").map((b) => b.trim()).filter(Boolean);
@@ -235,6 +264,7 @@ export function parseToolReply(raw: string): (ToolCall & { summary?: string })[]
     const tool = toolMatch[1] as ToolCall["tool"];
     const path = block.match(/^\s*PATH:\s*(.+)$/m)?.[1]?.trim();
     const command = block.match(/^\s*CMD:\s*(.+)$/m)?.[1]?.trim();
+    const query = block.match(/^\s*QUERY:\s*(.+)$/m)?.[1]?.trim();
     const summary = block.match(/^\s*SUMMARY:\s*([\s\S]*)$/m)?.[1]?.trim();
     let content: string | undefined;
     const bodyIdx = block.indexOf("\nBODY:");
@@ -242,13 +272,73 @@ export function parseToolReply(raw: string): (ToolCall & { summary?: string })[]
       content = block.slice(bodyIdx + "\nBODY:".length).replace(/^\n/, "");
     }
     if (tool === "write_file" && (!path || !content)) continue;
-    calls.push({ tool, path, command, content, summary } as ToolCall & { summary?: string });
-    if (calls.length >= 4) break;
+    calls.push({ tool, path, command, query, content, summary } as ToolCall & { summary?: string });
+    if (calls.length >= maxCalls) break;
+  }
+  if (!calls.length) {
+    const fromJson = parseJsonToolCalls(text);
+    if (fromJson.length) return fromJson.slice(0, maxCalls);
   }
   return calls;
 }
 
+/** Fallback for models that emit `{"tool":"write_file", ...}` JSON objects. */
+function parseJsonToolCalls(text: string): (ToolCall & { summary?: string })[] {
+  const calls: (ToolCall & { summary?: string })[] = [];
+  const candidates = text.match(/\{[\s\S]*?"tool"\s*:\s*"[\w_]+"[\s\S]*?\}/g) ?? [];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as ToolCall & { summary?: string };
+      if (parsed && typeof parsed.tool === "string") calls.push(parsed);
+    } catch {
+      // Ignore partial/invalid JSON; the text protocol stays authoritative.
+    }
+  }
+  return calls;
+}
+
+
+/**
+ * Asks the coder for ONE repair tool call and executes it.
+ * Shared by the typecheck, build and runtime-issue repair loops so all three
+ * behave identically (continuation on cut-off replies, event logging).
+ * Returns true when a tool actually ran.
+ */
+async function repairWithModel(
+  db: SupabaseClient,
+  run: RunRow,
+  ws: DevWorkspace,
+  token: string,
+  system: string,
+  instruction: string,
+  label: string,
+): Promise<boolean> {
+  let raw = await askModel(token, system, [
+    {
+      role: "user",
+      content: `${instruction}\n\nReply with ONE tool call in the line format, finishing with <<<END>>>.\n\nPROJECT FILES:\n${await ws.tree()}`,
+    },
+  ]);
+  for (let c = 0; c < 4 && raw && !raw.includes("<<<END>>>"); c++) {
+    const more = await askModel(token, system, [
+      { role: "user", content: "Continue the cut-off reply exactly where it stopped, raw code only, finish with <<<END>>>." },
+      { role: "assistant", content: raw.slice(-4000) },
+    ]);
+    if (!more) break;
+    raw += more;
+  }
+  const fix = parseToolReply(raw)[0];
+  if (!fix?.tool || fix.tool === "done") return false;
+  const result = await runTool(ws, fix);
+  await event(db, run, "tool", `${label} ${fix.tool} ${fix.path ?? ""}`.trim(), {
+    ok: result.ok,
+    output: result.output.slice(0, 2000),
+  });
+  return true;
+}
+
 /** Runs one bounded slice. Returns true when the whole run is finished. */
+
 export async function advanceDevRun(
   db: SupabaseClient,
   run: RunRow,
@@ -356,12 +446,29 @@ export async function advanceDevRun(
   }
 
   // ---------------------------------------------------------------- coding
+  // The project can carry its own rules (AGENTS.md, .agents/skills/*). They
+  // were previously ignored at runtime; load them once per slice and append
+  // them to the coder system prompt so repo conventions win over defaults.
+  let coderSystem = CODER_SYSTEM;
+  try {
+    const projectContext = await loadProjectContext(ws, run.prompt);
+    if (projectContext.prompt) {
+      coderSystem = `${CODER_SYSTEM}\n\n${projectContext.prompt}`;
+      await event(db, run, "context", "قواعد المشروع محمّلة", {
+        ruleFiles: projectContext.ruleFiles,
+        skills: projectContext.skills.map((s) => s.name),
+      });
+    }
+  } catch {
+    // Context is a bonus, never a blocker.
+  }
   const noToolCall = new Map<string, number>();
   /** Files already read this slice — re-reads are the classic stall loop. */
   const readOnce = new Set<string>();
   /** Files written per task — rewriting the same file forever is the other stall. */
   const written = new Map<string, string[]>();
   while (Date.now() - started < SLICE_MS) {
+
     const task = tasks.find((t) => t.status !== "done" && t.status !== "failed");
     if (!task) break;
 
@@ -391,7 +498,7 @@ export async function advanceDevRun(
 
     const doneFiles = written.get(task.id) ?? [];
     const askCoder = (extra: string, assistantSoFar?: string) =>
-      askModel(token, CODER_SYSTEM, [
+      askModel(token, coderSystem, [
         {
           role: "user",
           content: [
@@ -563,7 +670,34 @@ export async function advanceDevRun(
 
 
   // ---------------------------------------------------------------- verify
+  // Stage 1: `tsc --noEmit` catches type errors the Vite build happily
+  // ignores (esbuild strips types), and its messages are far more precise
+  // than a bundler stack trace, so the repair loop starts here.
+  await event(db, run, "status", "فحص الأنواع (TypeScript)");
+  let typed = await ws.typecheck();
+  for (let i = 0; typed.exitCode !== 0 && i < MAX_BUILD_FIXES; i++) {
+    const fixed = await repairWithModel(
+      db,
+      run,
+      ws,
+      token,
+      coderSystem,
+      `TypeScript reported errors. Fix the FIRST one with ONE tool call.\n\nTSC OUTPUT:\n${typed.stdout.slice(-4000)}\n${typed.stderr.slice(-1500)}`,
+      "tsc",
+    );
+    if (!fixed) break;
+    typed = await ws.typecheck();
+  }
+  await event(
+    db,
+    run,
+    "status",
+    typed.exitCode === 0 ? "الأنواع سليمة" : "تبقّت أخطاء أنواع",
+    { output: typed.stdout.slice(-1500) },
+  );
+
   await event(db, run, "status", "التحقق من البناء");
+
   let build = await ws.build();
   for (let i = 0; build.exitCode !== 0 && i < MAX_BUILD_FIXES; i++) {
     let fixRaw = await askModel(token, CODER_SYSTEM, [
@@ -630,6 +764,23 @@ export async function advanceDevRun(
   await event(db, run, buildOk ? "build_ok" : "build_failed", buildOk ? "البناء ناجح" : "البناء فشل", {
     output: build.stdout.slice(-2000),
   });
+
+  // Stage 3: run the project's own tests when it has any. Failures are
+  // reported, not fatal — a green build still ships, the user decides.
+  if (buildOk) {
+    const tests = await ws.runTests();
+    const skipped = /no test script/.test(tests.stdout);
+    if (!skipped) {
+      await event(
+        db,
+        run,
+        tests.exitCode === 0 ? "tests_ok" : "tests_failed",
+        tests.exitCode === 0 ? "الاختبارات ناجحة" : "بعض الاختبارات فشلت",
+        { output: `${tests.stdout}\n${tests.stderr}`.slice(-2000) },
+      );
+    }
+  }
+
 
   // -------------------------------------------- private GitHub persistence
   await ws.startDevServer();

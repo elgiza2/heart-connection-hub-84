@@ -10,6 +10,9 @@
  * Freestyle API directly.
  */
 import { FreestyleClient, type ExecResult } from "./freestyle";
+import { guardCommand, guardPath } from "../agent/safePaths";
+import { validateToolCall } from "../agent/toolSchemas";
+
 
 const WORKDIR = "/app";
 
@@ -18,7 +21,10 @@ export interface ToolCall {
   path?: string;
   content?: string;
   command?: string;
+  /** search_files pattern. */
+  query?: string;
   message?: string;
+
   [key: string]: unknown;
 }
 
@@ -337,6 +343,61 @@ export class DevWorkspace {
   }
 
   /**
+   * TypeScript check without emitting. Cheaper and far more precise than a
+   * full build, so the verifier runs it first. Projects without TypeScript
+   * simply report success.
+   */
+  async typecheck(): Promise<ExecResult> {
+    return this.bash(
+      "test -f tsconfig.json || { echo 'no tsconfig — skipped'; exit 0; }; " +
+        "npx --yes tsc --noEmit > /tmp/tsc.log 2>&1; code=$?; tail -60 /tmp/tsc.log; exit $code",
+      300_000,
+    );
+  }
+
+  /** ESLint, only when the project actually configures it. */
+  async lint(): Promise<ExecResult> {
+    return this.bash(
+      "ls eslint.config.* .eslintrc* > /dev/null 2>&1 || { echo 'no eslint config — skipped'; exit 0; }; " +
+        "npx --yes eslint src --max-warnings=0 > /tmp/lint.log 2>&1; code=$?; tail -60 /tmp/lint.log; exit $code",
+      300_000,
+    );
+  }
+
+  /** Runs the project's tests when a test script exists. */
+  async runTests(): Promise<ExecResult> {
+    return this.bash(
+      "grep -q '\"test\"' package.json 2>/dev/null || { echo 'no test script — skipped'; exit 0; }; " +
+        "CI=1 npm test --silent -- --run > /tmp/test.log 2>&1; code=$?; tail -60 /tmp/test.log; exit $code",
+      300_000,
+    );
+  }
+
+  /** ripgrep-style source search so the coder stops reading whole files. */
+  async searchFiles(query: string, path = "src"): Promise<ExecResult> {
+    const safePath = path.replace(/[^\w./-]/g, "") || "src";
+    return this.bash(
+      `grep -rnI --exclude-dir=node_modules --exclude-dir=dist -E ${JSON.stringify(query)} ${JSON.stringify(safePath)} 2>/dev/null | head -60`,
+      60_000,
+    );
+  }
+
+  /** Read-only git inspection (status | diff | log). */
+  async git(command: string): Promise<ExecResult> {
+    const map: Record<string, string> = {
+      status: "git status --short | head -60",
+      diff: "git --no-pager diff --stat | head -60",
+      log: "git --no-pager log --oneline -20",
+    };
+    const cmd = map[command.trim().toLowerCase()];
+    if (!cmd) {
+      return { exitCode: 1, stdout: "", stderr: "git supports only: status | diff | log" };
+    }
+    return this.bash(`test -d .git || { echo 'not a git repo'; exit 0; }; ${cmd}`, 60_000);
+  }
+
+
+  /**
    * Installs every bare package the source imports but that is not in
    * node_modules. The coder frequently imports a library (react-icons,
    * zustand, …) without installing it, which serves a blank page.
@@ -539,21 +600,32 @@ export class DevWorkspace {
   }
 }
 
+/** Formats an exec result for the model, always truncated. */
+function execOutput(res: ExecResult): ToolResult {
+  return {
+    ok: res.exitCode === 0,
+    output: clip(`exit=${res.exitCode}\n${res.stdout}\n${res.stderr}`.trim(), 8000),
+  };
+}
+
 /** Executes one model-chosen tool call against the workspace. */
 export async function runTool(ws: DevWorkspace, call: ToolCall): Promise<ToolResult> {
+  const invalid = validateToolCall(call as Parameters<typeof validateToolCall>[0]);
+  if (invalid && call.tool !== "done") return { ok: false, output: invalid };
+  if (typeof call.path === "string") {
+    const guard = guardPath(call.path);
+    if (!guard.allowed) return { ok: false, output: guard.reason ?? "blocked path" };
+  }
   try {
     switch (call.tool) {
       case "write_file": {
-        if (!call.path) return { ok: false, output: "write_file needs a path" };
-        await ws.writeFile(call.path, call.content ?? "");
+        await ws.writeFile(call.path!, call.content ?? "");
         return { ok: true, output: `wrote ${call.path} (${(call.content ?? "").length} chars)` };
       }
       case "read_file": {
-        if (!call.path) return { ok: false, output: "read_file needs a path" };
-        return { ok: true, output: clip(await ws.readFile(call.path), 6000) };
+        return { ok: true, output: clip(await ws.readFile(call.path!), 6000) };
       }
       case "delete_file": {
-        if (!call.path) return { ok: false, output: "delete_file needs a path" };
         await ws.bash(`rm -rf ${JSON.stringify(call.path)}`, 30_000);
         return { ok: true, output: `deleted ${call.path}` };
       }
@@ -564,21 +636,27 @@ export async function runTool(ws: DevWorkspace, call: ToolCall): Promise<ToolRes
         );
         return { ok: res.exitCode === 0, output: clip(res.stdout || res.stderr) };
       }
+      case "search_files": {
+        const query = String(call.query ?? call.command ?? "");
+        const res = await ws.searchFiles(query, typeof call.path === "string" ? call.path : "src");
+        return { ok: true, output: clip(res.stdout || "(no matches)") };
+      }
+      case "git": {
+        return execOutput(await ws.git(String(call.command ?? "status")));
+      }
       case "bash": {
-        if (!call.command) return { ok: false, output: "bash needs a command" };
-        const res = await ws.bash(call.command);
-        return {
-          ok: res.exitCode === 0,
-          output: clip(`exit=${res.exitCode}\n${res.stdout}\n${res.stderr}`.trim()),
-        };
+        const guard = guardCommand(call.command!);
+        if (!guard.allowed) return { ok: false, output: guard.reason ?? "blocked command" };
+        return execOutput(await ws.bash(call.command!));
       }
-      case "build": {
-        const res = await ws.build();
-        return {
-          ok: res.exitCode === 0,
-          output: clip(`exit=${res.exitCode}\n${res.stdout}\n${res.stderr}`.trim()),
-        };
-      }
+      case "typecheck":
+        return execOutput(await ws.typecheck());
+      case "lint":
+        return execOutput(await ws.lint());
+      case "run_tests":
+        return execOutput(await ws.runTests());
+      case "build":
+        return execOutput(await ws.build());
       default:
         return { ok: false, output: `Unknown tool: ${call.tool}` };
     }
@@ -586,6 +664,7 @@ export async function runTool(ws: DevWorkspace, call: ToolCall): Promise<ToolRes
     return { ok: false, output: err instanceof Error ? err.message : String(err) };
   }
 }
+
 
 /** Free screenshot service — no key needed, used for the deploy card. */
 export function screenshotUrl(siteUrl: string): string {
