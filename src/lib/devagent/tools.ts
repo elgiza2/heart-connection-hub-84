@@ -10,6 +10,9 @@
  * Freestyle API directly.
  */
 import { FreestyleClient, type ExecResult } from "./freestyle";
+import { guardCommand, guardPath } from "../agent/safePaths";
+import { validateToolCall } from "../agent/toolSchemas";
+
 
 const WORKDIR = "/app";
 
