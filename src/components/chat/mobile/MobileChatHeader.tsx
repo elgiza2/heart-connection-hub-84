@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type RefObject } from "react";
+import { useState, type RefObject } from "react";
 import { AnimatePresence, m as motion } from "framer-motion";
 
 import { useNavigate } from "react-router-dom";
@@ -154,7 +154,6 @@ export default function MobileChatHeader({
   rightSlot,
   modelSlot,
   chatUserId,
-  scrollContainerRef,
   inlineRename,
 
   inlineInvite,
