@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { runMediaPlan, regenerateScene } from "@/lib/mediaGeneration";
 import { updateMessageMetadata } from "../services/conversationApi";
+import { CREDITS_CHANGED_EVENT } from "@/hooks/useCredits";
 import { MediaResultCard } from "../lazyComponents";
 import type { Message } from "../chatConstants";
 
