@@ -630,7 +630,34 @@ export async function advanceDevRun(
 
 
   // ---------------------------------------------------------------- verify
+  // Stage 1: `tsc --noEmit` catches type errors the Vite build happily
+  // ignores (esbuild strips types), and its messages are far more precise
+  // than a bundler stack trace, so the repair loop starts here.
+  await event(db, run, "status", "فحص الأنواع (TypeScript)");
+  let typed = await ws.typecheck();
+  for (let i = 0; typed.exitCode !== 0 && i < MAX_BUILD_FIXES; i++) {
+    const fixed = await repairWithModel(
+      db,
+      run,
+      ws,
+      token,
+      coderSystem,
+      `TypeScript reported errors. Fix the FIRST one with ONE tool call.\n\nTSC OUTPUT:\n${typed.stdout.slice(-4000)}\n${typed.stderr.slice(-1500)}`,
+      "tsc",
+    );
+    if (!fixed) break;
+    typed = await ws.typecheck();
+  }
+  await event(
+    db,
+    run,
+    "status",
+    typed.exitCode === 0 ? "الأنواع سليمة" : "تبقّت أخطاء أنواع",
+    { output: typed.stdout.slice(-1500) },
+  );
+
   await event(db, run, "status", "التحقق من البناء");
+
   let build = await ws.build();
   for (let i = 0; build.exitCode !== 0 && i < MAX_BUILD_FIXES; i++) {
     let fixRaw = await askModel(token, CODER_SYSTEM, [
