@@ -1,6 +1,7 @@
 /** @doc Serverless endpoint driving the Dev Agent (start / step / status / stop). */
 import { handleDevAgent, type DevAgentPayload } from "../src/lib/devagent/core";
-import { apiHeaders, authenticateRequest } from "../src/lib/api/authenticateRequest";
+import { apiHeaders } from "../src/lib/api/authenticateRequest";
+import { guardApiRequest, guardResponse } from "../src/lib/api/apiGuard";
 
 export const config = { runtime: "nodejs", maxDuration: 300 };
 
@@ -10,9 +11,8 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: cors });
   }
-  if (!(await authenticateRequest(req))) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: cors });
-  }
+  const guard = await guardApiRequest(req, "dev-agent");
+  if (!guard.ok) return guardResponse(guard, cors);
   try {
     const payload = (await req.json().catch(() => null)) as DevAgentPayload | null;
     const result = await handleDevAgent(payload);

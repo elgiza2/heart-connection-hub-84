@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { apiHeaders, authenticateRequest } from "../src/lib/api/authenticateRequest";
+import { apiHeaders } from "../src/lib/api/authenticateRequest";
+import { guardApiRequest, guardResponse } from "../src/lib/api/apiGuard";
 
 export const config = { runtime: "nodejs" };
 
@@ -34,7 +35,8 @@ export default async function handler(request: Request): Promise<Response> {
   const headers = apiHeaders(request);
   if (request.method === "OPTIONS") return new Response("ok", { headers });
   if (request.method !== "POST") return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers });
-  if (!(await authenticateRequest(request))) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
+  const guard = await guardApiRequest(request, "render-pdf");
+  if (!guard.ok) return guardResponse(guard, headers);
 
   const parsed = InputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid document" }), { status: 400, headers });

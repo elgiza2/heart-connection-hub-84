@@ -1,6 +1,7 @@
 /** @doc Serverless endpoint powering Deep Research web lookups (keys live in Supabase, never in the client). */
 import { webSearch } from "../src/lib/search/webSearchCore";
-import { apiHeaders, authenticateRequest } from "../src/lib/api/authenticateRequest";
+import { apiHeaders } from "../src/lib/api/authenticateRequest";
+import { guardApiRequest, guardResponse } from "../src/lib/api/apiGuard";
 
 export const config = { runtime: "nodejs" };
 
@@ -10,9 +11,8 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers });
   }
-  if (!(await authenticateRequest(req))) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
-  }
+  const guard = await guardApiRequest(req, "web-search");
+  if (!guard.ok) return guardResponse(guard, headers);
 
   const body = (await req.json().catch(() => null)) as
     | { query?: string; count?: number; offset?: number }
