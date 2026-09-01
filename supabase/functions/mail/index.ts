@@ -145,6 +145,18 @@ Deno.serve(async (req) => {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return json({ error: "invalid recipient" }, 400);
     if (!subject && !text) return json({ error: "empty message" }, 400);
 
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentSendCount, error: countError } = await admin
+      .from("mail_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("direction", "out")
+      .gte("created_at", oneHourAgo);
+    if (countError) return json({ error: "unable to verify send limit" }, 503);
+    if ((recentSendCount ?? 0) >= 30) {
+      return json({ error: "hourly send limit reached", retry_after: 3600 }, 429);
+    }
+
     // Every outgoing email wears the Megsy brand shell (unless a caller sends
     // a full HTML document of its own).
     const code = payload.code ? String(payload.code).slice(0, 12) : null;
