@@ -1482,6 +1482,7 @@ const ChatMessage = ({
             steps={narrations!}
             status={searchStatus}
             active={isResearchActive}
+            running={hasRunningTool || toolActivity?.status === "running"}
           />
         )}
         {showLiveThinkingTrace && (
@@ -1490,6 +1491,7 @@ const ChatMessage = ({
             steps={[...(narrations || []), ...(activeThinkingSteps || [])]}
             text={reasoning}
             active
+            running={hasRunningTool || toolActivity?.status === "running"}
             className={content ? "mb-2" : ""}
           />
         )}
@@ -1500,11 +1502,21 @@ const ChatMessage = ({
           reasoning &&
           !showNarration &&
           !showLiveThinkingTrace &&
-          isStreaming && <ThinkingTrace text={reasoning} status={searchStatus} active />}
+          isStreaming && (
+            <ThinkingTrace
+              text={reasoning}
+              status={searchStatus}
+              active
+              running={hasRunningTool || toolActivity?.status === "running"}
+            />
+          )}
 
-        {role === "assistant" && !isStreaming && !showNarration && !!thoughtsText && (
-          <ThinkingTrace text={thoughtsText} />
-        )}
+        {role === "assistant" &&
+          !isStreaming &&
+          !showNarration &&
+          (!!thoughtsText || persistedThinkingSteps.length > 0) && (
+            <ThinkingTrace text={thoughtsText} steps={persistedThinkingSteps} />
+          )}
         {role === "assistant" && interrupted && !isStreaming && (
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
             <span className="flex-1">The previous response was interrupted.</span>
