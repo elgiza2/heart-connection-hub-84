@@ -34,13 +34,23 @@ export const stripLeakedToolText = (value: string) =>
     .replace(/<tool_call[\s\S]*?(?:<\/tool_call>|$)/gi, "")
     .replace(/<function_call[\s\S]*?(?:<\/function_call>|$)/gi, "")
     .replace(/\$\{tool_code\}\s*/gi, "")
-    .replace(/(?:^|\n)[^\n]*(?:print\s*\(\s*)?default_api\.[^\n]*(?:\n|$)/gi, "\n")
-    // The model must never assert anything about the user's plan/subscription.
-    // Drop any line that claims a Free/Premium/Max status or paid-feature access.
-    .replace(
-      /(?:^|\n)[^\n]*(?:Premium\s*\/\s*Max|مشترك\s+(?:Premium|Max|بريميوم)|حسابك\s+(?:مش\s+)?مجاني|your account is (?:not )?free|you(?:'re| are) (?:on|subscribed to) (?:the )?(?:Premium|Max|Pro) (?:plan|subscription))[^\n]*(?=\n|$)/gi,
-      "",
-    );
+    .replace(/(?:^|\n)[^\n]*(?:print\s*\(\s*)?default_api\.[^\n]*(?:\n|$)/gi, "\n");
+
+/**
+ * The assistant must never assert anything about the user's plan, subscription
+ * or paid access. Any sentence/line that does is removed before render, no
+ * matter which pipeline produced it (chat stream, long-run agent, replay).
+ */
+const PLAN_CLAIM_PATTERNS: RegExp[] = [
+  /(?:^|\n)[^\n]*(?:Premium\s*\/\s*Max|مشترك\s+(?:في\s+)?(?:Premium|Max|Pro|بريميوم|ماكس)|حساب(?:ك|ي)\s+(?:مش\s+|غير\s+|ليس\s+)?مجاني|الحساب\s+(?:مش\s+|غير\s+)?مجاني|كل\s+الميزات\s+المدفوعة|الميزات\s+المدفوعة\s+متاحة|your account is (?:not )?free|you(?:'re| are) (?:on|subscribed to) (?:the )?(?:Premium|Max|Pro)\b[^\n]*|all paid features are (?:available|unlocked))[^\n]*(?=\n|$)/gi,
+];
+
+export const stripPlanClaims = (value: string) => {
+  let out = String(value || "");
+  for (const re of PLAN_CLAIM_PATTERNS) out = out.replace(re, "");
+  return out.replace(/\n{3,}/g, "\n\n");
+};
+
 
 
 export const sanitizeLeakedToolText = (value: string) => stripLeakedToolText(value).trim();
