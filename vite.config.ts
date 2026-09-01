@@ -105,6 +105,7 @@ function anythingApiDevPlugin(): Plugin {
         const chunks: Buffer[] = [];
         req.on("data", (c) => chunks.push(Buffer.from(c)));
         req.on("end", async () => {
+          if (!(await devApiGuard(req as never, res as never, "anything"))) return;
           let payload: unknown = null;
           try {
             payload = chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null;
@@ -179,6 +180,7 @@ function manusAdminDevPlugin(): Plugin {
 function devAgentDevPlugin(): Plugin {
   const json = (
     path: string,
+    endpoint: string | null,
     run: (payload: unknown) => Promise<{ status: number; body: Record<string, unknown> }>,
   ) =>
     (server: ViteDevServer) => {
@@ -198,6 +200,7 @@ function devAgentDevPlugin(): Plugin {
         const chunks: Buffer[] = [];
         req.on("data", (c) => chunks.push(Buffer.from(c)));
         req.on("end", async () => {
+          if (endpoint && !(await devApiGuard(req as never, res as never, endpoint))) return;
           let payload: unknown = null;
           try {
             payload = chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null;
@@ -221,11 +224,11 @@ function devAgentDevPlugin(): Plugin {
   return {
     name: "dev-agent-dev",
     configureServer(server: ViteDevServer) {
-      json("/api/dev-admin", async (payload) => {
+      json("/api/dev-admin", null, async (payload) => {
         const { handleDevAdmin } = await import("./src/lib/devagent/adminCore");
         return handleDevAdmin(payload as never, process.env.M_ADMIN_PASSWORD);
       })(server);
-      json("/api/dev-agent", async (payload) => {
+      json("/api/dev-agent", "dev-agent", async (payload) => {
         const { handleDevAgent } = await import("./src/lib/devagent/core");
         return handleDevAgent(payload as never);
       })(server);
@@ -254,6 +257,7 @@ function computerAgentDevPlugin(): Plugin {
         const chunks: Buffer[] = [];
         req.on("data", (c) => chunks.push(Buffer.from(c)));
         req.on("end", async () => {
+          if (!(await devApiGuard(req as never, res as never, "computer-agent"))) return;
           let payload: unknown = null;
           try {
             payload = chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null;
@@ -299,6 +303,7 @@ function longRunDevPlugin(): Plugin {
         const chunks: Buffer[] = [];
         req.on("data", (c) => chunks.push(Buffer.from(c)));
         req.on("end", async () => {
+          if (!(await devApiGuard(req as never, res as never, "long-run"))) return;
           let payload: unknown = null;
           try {
             payload = chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null;
@@ -344,6 +349,7 @@ function mcpDevPlugin(): Plugin {
         const chunks: Buffer[] = [];
         req.on("data", (c) => chunks.push(Buffer.from(c)));
         req.on("end", async () => {
+          if (!(await devApiGuard(req as never, res as never, "mcp"))) return;
           let payload: unknown = null;
           try {
             payload = chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null;
@@ -599,6 +605,7 @@ function transcribeDevPlugin(): Plugin {
         const chunks: Buffer[] = [];
         req.on("data", (c) => chunks.push(Buffer.from(c)));
         req.on("end", async () => {
+          if (!(await devApiGuard(req as never, res as never, "transcribe"))) return;
           try {
             const buf = Buffer.concat(chunks);
             const request = new Request("http://localhost/api/transcribe", {
