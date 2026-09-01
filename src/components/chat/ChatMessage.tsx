@@ -1110,6 +1110,13 @@ const ChatMessage = ({
     if (answer && rawThoughts === answer) return "";
     return rawThoughts;
   })();
+  // Thinking steps recorded on the saved message, so reopening a conversation
+  // restores the same trace the user saw live instead of an empty panel.
+  const persistedThinkingSteps = useMemo<string[]>(() => {
+    const raw = (metadata as any)?.narrations;
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item: unknown) => String(item || "").trim()).filter(Boolean);
+  }, [metadata]);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [canvasOpen, setCanvasOpen] = useState(false);
 
