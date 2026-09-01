@@ -6,6 +6,7 @@
  * Response: { action: "draft", skill, summary } | { action: "ask", message }
  */
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const headers = {
   ...corsHeaders,
@@ -76,6 +77,21 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers });
+  }
+
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
+  }
+  const authClient = createClient(
+    Deno.env.get("SUPABASE_URL") || "",
+    Deno.env.get("SUPABASE_ANON_KEY") || "",
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  const { data: authData, error: authError } = await authClient.auth.getUser(token);
+  if (authError || !authData.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
   }
 
   const key = apiKey();

@@ -7,6 +7,7 @@
 import { sendSmtp, smtpConfigured } from "../_shared/smtp.ts";
 import { renderCleanEmail, toPlainText, type MailLang } from "../_shared/email-templates/campaign.ts";
 import { welcomeEmail } from "../_shared/email-templates/copy.ts";
+import { Webhook } from "npm:standardwebhooks@1.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,17 +48,27 @@ const SUBJECTS: Record<MailLang, Record<string, string>> = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
   if (!smtpConfigured()) return json({ error: "smtp not configured" }, 500);
 
-  let body: Record<string, any> = {};
+  const hookSecret = Deno.env.get("SEND_EMAIL_HOOK_SECRET");
+  if (!hookSecret) return json({ error: "hook secret not configured" }, 503);
+
+  const rawBody = await req.text();
+  let body: Record<string, unknown> = {};
   try {
-    body = await req.json();
+    const verified = new Webhook(hookSecret).verify(rawBody, {
+      "webhook-id": req.headers.get("webhook-id") || "",
+      "webhook-timestamp": req.headers.get("webhook-timestamp") || "",
+      "webhook-signature": req.headers.get("webhook-signature") || "",
+    });
+    body = verified as Record<string, unknown>;
   } catch {
-    return json({ error: "invalid json" }, 400);
+    return json({ error: "invalid webhook signature" }, 401);
   }
 
-  const user = body.user ?? {};
-  const data = body.email_data ?? {};
+  const user = (body.user ?? {}) as Record<string, unknown>;
+  const data = (body.email_data ?? {}) as Record<string, unknown>;
   const to = String(user.email || "");
   if (!to) return json({ error: "no recipient" }, 400);
 
@@ -67,7 +78,7 @@ Deno.serve(async (req) => {
 
   const confirmUrl =
     data.redirect_to && data.token_hash
-      ? `${String(data.site_url || SITE)}/auth/v1/verify?token=${data.token_hash}&type=${action}&redirect_to=${data.redirect_to}`
+      ? `${String(data.site_url || SITE)}/auth/v1/verify?token=${encodeURIComponent(String(data.token_hash))}&type=${encodeURIComponent(action)}&redirect_to=${encodeURIComponent(String(data.redirect_to))}`
       : `${SITE}/chat`;
 
   const input = welcomeEmail(lang, HERO, code);
