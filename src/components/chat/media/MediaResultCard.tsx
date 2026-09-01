@@ -104,7 +104,7 @@ export default function MediaResultCard({
 
               {/* Tile */}
               <div
-                className={`relative w-full flex items-center justify-center overflow-hidden rounded-2xl ${aspectClass} ${
+                className={`relative w-full flex items-center justify-center overflow-hidden rounded-3xl ${aspectClass} ${
                   r.status === "done" && r.url
                     ? "bg-transparent"
                     : "bg-foreground/[0.045]"
@@ -120,7 +120,7 @@ export default function MediaResultCard({
                         controls
                         playsInline
                         preload="metadata"
-                        className="w-full h-full object-cover rounded-2xl"
+                        className="w-full h-full object-cover rounded-3xl"
                       />
                       <GlassDownload
                         onClick={() =>
@@ -134,12 +134,12 @@ export default function MediaResultCard({
                   ) : (
                     <>
                       <motion.img
-                        initial={{ opacity: 0, scale: 1.02, filter: "blur(6px)" }}
-                        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                        transition={{ duration: 0.45 }}
+                        initial={{ opacity: 0, scale: 1.01 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.35, ease: "easeOut" }}
                         src={r.url}
                         alt={r.title}
-                        className="w-full h-full object-cover rounded-2xl"
+                        className="w-full h-full object-cover rounded-3xl"
                       />
                       <GlassDownload
                         onClick={() =>
@@ -176,7 +176,7 @@ export default function MediaResultCard({
 
       {/* ── Merge into one video ───────────────────────────────────── */}
       {(canMerge || mergeStatus !== "idle" || finalVideoUrl) && (
-        <div className="sm:col-span-2 mt-1 rounded-2xl border border-border/60 bg-card/60 backdrop-blur p-3 space-y-2">
+        <div className="sm:col-span-2 mt-1 rounded-3xl border border-border/60 bg-card/60 backdrop-blur p-3 space-y-2">
           {finalVideoUrl ? (
             <>
               <div className="flex items-center gap-2 text-[12px] font-medium">
