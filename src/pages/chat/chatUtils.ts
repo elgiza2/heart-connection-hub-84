@@ -42,13 +42,34 @@ export const stripLeakedToolText = (value: string) =>
  * matter which pipeline produced it (chat stream, long-run agent, replay).
  */
 const PLAN_CLAIM_PATTERNS: RegExp[] = [
-  /(?:^|\n)[^\n]*(?:Premium\s*\/\s*Max|مشترك\s+(?:في\s+)?(?:Premium|Max|Pro|بريميوم|ماكس)|حساب(?:ك|ي)\s+(?:مش\s+|غير\s+|ليس\s+)?مجاني|الحساب\s+(?:مش\s+|غير\s+)?مجاني|كل\s+الميزات\s+المدفوعة|الميزات\s+المدفوعة\s+متاحة|your account is (?:not )?free|you(?:'re| are) (?:on|subscribed to) (?:the )?(?:Premium|Max|Pro)\b[^\n]*|all paid features are (?:available|unlocked))[^\n]*(?=\n|$)/gi,
+  /premium\s*\/\s*max/i,
+  /مشترك\s+(?:في\s+)?(?:premium|max|pro|بريميوم|ماكس)/i,
+  /(?:حساب(?:ك|ي)|الحساب)\s+(?:مش\s+|غير\s+|ليس\s+)?مجاني/i,
+  /الميزات\s+المدفوعة/i,
+  /(?:خطة|اشتراك)(?:ك|ي)?\s+(?:premium|max|pro|مدفوع)/i,
+  /your account is (?:not )?free/i,
+  /you(?:'re| are) (?:on|subscribed to) (?:the )?(?:premium|max|pro)\b/i,
+  /all paid features are (?:available|unlocked)/i,
 ];
 
+const isPlanClaim = (segment: string) => PLAN_CLAIM_PATTERNS.some((re) => re.test(segment));
+
+/**
+ * Removes any sentence — not just whole lines — that asserts something about
+ * the user's plan / subscription / paid access, in Arabic or English.
+ */
 export const stripPlanClaims = (value: string) => {
-  let out = String(value || "");
-  for (const re of PLAN_CLAIM_PATTERNS) out = out.replace(re, "");
-  return out.replace(/\n{3,}/g, "\n\n");
+  const input = String(value || "");
+  if (!input || !isPlanClaim(input)) return input;
+  const cleanedLines = input.split("\n").map((line) => {
+    if (!isPlanClaim(line)) return line;
+    // Drop only the offending sentence(s) inside the line when possible.
+    const sentences = line.split(/(?<=[.!؟?۔])\s+/);
+    const kept = sentences.filter((s) => !isPlanClaim(s));
+    const rebuilt = kept.join(" ").trim();
+    return isPlanClaim(rebuilt) ? "" : rebuilt;
+  });
+  return cleanedLines.join("\n").replace(/\n{3,}/g, "\n\n");
 };
 
 
