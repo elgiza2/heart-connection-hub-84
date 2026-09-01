@@ -20,7 +20,12 @@ interface MessageInsightsProps {
  * Trust & Transparency: shows model, tokens, cost, latency and memory usage
  * for an assistant message. Renders nothing if metadata is empty.
  */
-export function MessageInsights({ metadata }: MessageInsightsProps) {
+export function MessageInsights(_props: MessageInsightsProps) {
+  // Disabled by product decision: never show model name, token counts, cost
+  // or latency chips inside the chat.
+  return null;
+  // eslint-disable-next-line no-unreachable
+  const metadata = _props.metadata;
   if (!metadata) return null;
   const model: string | undefined = metadata.modelActual || metadata.modelLabel;
   const usage: Usage | undefined = metadata.usage;
