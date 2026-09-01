@@ -1038,7 +1038,12 @@ const ChatMessage = ({
   const { displayContent: rawDisplayContent, inlineImages } = useMemo(() => {
     if (role === "user") return { displayContent: content, inlineImages: [] as string[] };
     const normalized = normalizeResearchMarkdown(content);
-    return { displayContent: normalized.cleaned, inlineImages: normalized.extractedImages };
+    // Final render-time guard: no assistant text may claim a plan / paid status,
+    // regardless of which pipeline (chat, long-run, replay) produced it.
+    return {
+      displayContent: stripPlanClaims(normalized.cleaned),
+      inlineImages: normalized.extractedImages,
+    };
   }, [content, role]);
 
   // Smooth streaming: reveal assistant text character-by-character (~60fps)
