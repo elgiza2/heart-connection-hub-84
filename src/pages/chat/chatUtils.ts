@@ -53,7 +53,8 @@ export const stripPlanClaims = (value: string) => {
 
 
 
-export const sanitizeLeakedToolText = (value: string) => stripLeakedToolText(value).trim();
+export const sanitizeLeakedToolText = (value: string) =>
+  stripPlanClaims(stripLeakedToolText(value)).trim();
 
 export const makeLeakedToolStreamSanitizer = () => {
   let buffer = "";
