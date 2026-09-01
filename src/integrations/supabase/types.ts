@@ -1560,6 +1560,27 @@ export type Database = {
         }
         Relationships: []
       }
+      api_rate_limits: {
+        Row: {
+          endpoint: string
+          request_count: number
+          user_id: string
+          window_started_at: string
+        }
+        Insert: {
+          endpoint: string
+          request_count?: number
+          user_id: string
+          window_started_at: string
+        }
+        Update: {
+          endpoint?: string
+          request_count?: number
+          user_id?: string
+          window_started_at?: string
+        }
+        Relationships: []
+      }
       apify_keys: {
         Row: {
           api_key: string
@@ -15155,6 +15176,17 @@ export type Database = {
           rate_pct: number
           tier_id: string
           tier_name: string
+        }[]
+      }
+      check_api_rate_limit: {
+        Args: {
+          _endpoint: string
+          _request_limit: number
+          _window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          retry_after: number
         }[]
       }
       check_edge_rate_limit: {
