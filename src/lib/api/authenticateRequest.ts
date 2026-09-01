@@ -31,8 +31,9 @@ export function apiHeaders(request: Request): Record<string, string> {
       .filter(Boolean)
       .map(String),
   );
-  if (origin?.endsWith(".lovable.app")) allowed.add(origin);
-  if (origin?.endsWith(".vercel.app")) allowed.add(origin);
+  if (origin === "https://id-preview--5db12946-613d-4ff3-84fc-3608bdee3f03.lovable.app") {
+    allowed.add(origin);
+  }
   if (process.env.NODE_ENV !== "production" && origin?.startsWith("http://localhost:")) allowed.add(origin);
 
   return {

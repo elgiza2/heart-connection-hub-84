@@ -61,6 +61,30 @@ function clientIp(headers: Headers): string {
   );
 }
 
+/** Best-effort pre-auth throttle for login/admin bridges that cannot require an app session. */
+export function guardPublicRequest(
+  request: Request,
+  endpoint: string,
+  limit: number,
+  windowMs: number,
+): GuardResult {
+  const key = `${clientIp(request.headers)}:${endpoint}`;
+  const now = Date.now();
+  const bucket = buckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return { ok: true, status: 200 };
+  }
+  bucket.count += 1;
+  if (bucket.count <= limit) return { ok: true, status: 200 };
+  return {
+    ok: false,
+    status: 429,
+    error: "Too many requests. Please try again later.",
+    retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+  };
+}
+
 /**
  * Authenticates the caller and applies the endpoint's rate limit.
  * Callers MUST return early when `ok` is false — before any provider call.

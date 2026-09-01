@@ -1,6 +1,7 @@
 /** @doc Serverless endpoint for Clerk-backed sign-in bridging and app integrations. */
 import { handleClerk, type ClerkPayload } from "../src/lib/clerk/bridgeCore";
 import { apiHeaders } from "../src/lib/api/authenticateRequest";
+import { guardPublicRequest, guardResponse } from "../src/lib/api/apiGuard";
 
 export const config = { runtime: "nodejs" };
 
@@ -12,6 +13,8 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ ok: false, error: "Method not allowed" }), { status: 405, headers });
   }
+  const guard = guardPublicRequest(req, "clerk", 20, 5 * 60 * 1000);
+  if (!guard.ok) return guardResponse(guard, headers);
 
   const body = (await req.json().catch(() => null)) as ClerkPayload | null;
   try {
