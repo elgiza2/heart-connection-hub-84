@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import MegsyStar from "@/components/branding/MegsyStar";
 
 import { ToolLoader } from "@/components/chat/primitives/ToolStatus";
+import { SecureVideo } from "@/components/chat/media/SecureVideo";
 
 async function forceDownload(url: string, filename: string) {
   try {
@@ -191,7 +192,7 @@ export default function MediaResultCard({
                   Download
                 </Button>
               </div>
-              <video
+              <SecureVideo
                 src={finalVideoUrl}
                 controls
                 playsInline
