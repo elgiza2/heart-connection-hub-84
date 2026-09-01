@@ -303,9 +303,18 @@ export async function handleComputerAgent(payload: ComputerPayload | null): Prom
       }
       const taskId = inserted.id as string;
 
+      // The upstream agent has no clock and no reporting contract of its own,
+      // so both are prepended to every task.
+      const nowIso = new Date().toISOString().slice(0, 10);
+      const preamble =
+        `Today's date is ${nowIso} (UTC). Treat it as authoritative and never present ` +
+        `older material as today's news.\n` +
+        `When you finish, return a complete self-contained report of the findings ` +
+        `(facts, numbers, dates, sources) as the final answer — never leave the results ` +
+        `only inside your intermediate steps.\n\n`;
       const fullPrompt = memory
-        ? `Context from earlier in this conversation:\n${memory}\n\n---\nTask:\n${prompt}`
-        : prompt;
+        ? `${preamble}Context from earlier in this conversation:\n${memory}\n\n---\nTask:\n${prompt}`
+        : `${preamble}Task:\n${prompt}`;
 
       const res = await callUpstream(supabase, {
         path: "/v1/tasks",
