@@ -86,6 +86,7 @@ import {
 import { Message, MessageContent } from "@/components/prompt-kit/message";
 import ThinkingTrace from "./ThinkingTrace";
 import { estimateTokens, formatTokens } from "@/pages/chat/utils/estimateTokens";
+import { SecureVideo } from "@/components/chat/media/SecureVideo";
 
 
 interface ChatMessageProps {
@@ -561,7 +562,7 @@ const MarkdownRenderer = ({
           />
         ) : null,
       video: ({ src, ...props }: any) => (
-        <video
+        <SecureVideo
           src={src}
           controls
           playsInline
@@ -1604,7 +1605,7 @@ const ChatMessage = ({
                 {videos
                   .filter((v, i, a) => a.indexOf(v) === i)
                   .map((url, i) => (
-                    <video
+                    <SecureVideo
                       key={`${url}-${i}`}
                       src={url}
                       controls
