@@ -91,15 +91,7 @@ const ThinkingTrace = ({
     if (changed) forceRender((n) => n + 1);
   }, [steps, status]);
 
-  // Elapsed seconds while active — drives the fallback phase rotation.
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    setElapsed(0);
-    const started = Date.now();
-    const id = setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
-    return () => clearInterval(id);
-  }, [active]);
+  // No elapsed-seconds counter in the UI — the trace shows real activity only.
 
   const reasoningLines = useMemo(() => {
     if (!text?.trim()) return [] as string[];
@@ -167,11 +159,6 @@ const ThinkingTrace = ({
         >
           {headline}
         </span>
-        {active && elapsed > 2 && (
-          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
-            {elapsed}s
-          </span>
-        )}
         <span className="ms-auto grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
           <ChevronDown
             className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
