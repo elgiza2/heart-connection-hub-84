@@ -21,6 +21,12 @@ export interface ThinkingTraceProps {
   text?: string;
   /** True while the turn is still running. */
   active?: boolean;
+  /**
+   * True only while a tool call is really executing. The Megsy star animates
+   * exclusively during that window — never before the tool starts and never
+   * after it settles.
+   */
+  running?: boolean;
   /** Real tool family currently executing — drives the row icon. */
   tool?: string | null;
   /** Start expanded (rarely needed — collapsed is the default look). */
@@ -54,6 +60,7 @@ const ThinkingTrace = ({
   steps,
   text,
   active,
+  running,
   tool,
   defaultOpen,
   className = "",
@@ -142,9 +149,17 @@ const ThinkingTrace = ({
       >
         {active ? (
           ToolIcon ? (
-            <ToolIcon className="h-3.5 w-3.5 shrink-0 text-[var(--megsy-blue)] motion-safe:animate-pulse" />
+            <ToolIcon
+              className={`h-3.5 w-3.5 shrink-0 text-[var(--megsy-blue)] ${
+                running ? "motion-safe:animate-pulse" : ""
+              }`}
+            />
           ) : (
-            <MegsyStar className="h-3.5 w-3.5 shrink-0 text-[var(--megsy-blue)] motion-safe:animate-pulse" />
+            <MegsyStar
+              className={`h-3.5 w-3.5 shrink-0 text-[var(--megsy-blue)] ${
+                running ? "motion-safe:animate-pulse" : ""
+              }`}
+            />
           )
         ) : (
           <BrandLogo className="h-3.5 w-3.5 shrink-0" />

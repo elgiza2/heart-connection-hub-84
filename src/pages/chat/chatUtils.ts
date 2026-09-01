@@ -34,16 +34,48 @@ export const stripLeakedToolText = (value: string) =>
     .replace(/<tool_call[\s\S]*?(?:<\/tool_call>|$)/gi, "")
     .replace(/<function_call[\s\S]*?(?:<\/function_call>|$)/gi, "")
     .replace(/\$\{tool_code\}\s*/gi, "")
-    .replace(/(?:^|\n)[^\n]*(?:print\s*\(\s*)?default_api\.[^\n]*(?:\n|$)/gi, "\n")
-    // The model must never assert anything about the user's plan/subscription.
-    // Drop any line that claims a Free/Premium/Max status or paid-feature access.
-    .replace(
-      /(?:^|\n)[^\n]*(?:Premium\s*\/\s*Max|مشترك\s+(?:Premium|Max|بريميوم)|حسابك\s+(?:مش\s+)?مجاني|your account is (?:not )?free|you(?:'re| are) (?:on|subscribed to) (?:the )?(?:Premium|Max|Pro) (?:plan|subscription))[^\n]*(?=\n|$)/gi,
-      "",
-    );
+    .replace(/(?:^|\n)[^\n]*(?:print\s*\(\s*)?default_api\.[^\n]*(?:\n|$)/gi, "\n");
+
+/**
+ * The assistant must never assert anything about the user's plan, subscription
+ * or paid access. Any sentence/line that does is removed before render, no
+ * matter which pipeline produced it (chat stream, long-run agent, replay).
+ */
+const PLAN_CLAIM_PATTERNS: RegExp[] = [
+  /premium\s*\/\s*max/i,
+  /مشترك\s+(?:في\s+)?(?:premium|max|pro|بريميوم|ماكس)/i,
+  /(?:حساب(?:ك|ي)|الحساب)\s+(?:مش\s+|غير\s+|ليس\s+)?مجاني/i,
+  /الميزات\s+المدفوعة/i,
+  /(?:خطة|اشتراك)(?:ك|ي)?\s+(?:premium|max|pro|مدفوع)/i,
+  /your account is (?:not )?free/i,
+  /you(?:'re| are) (?:on|subscribed to) (?:the )?(?:premium|max|pro)\b/i,
+  /all paid features are (?:available|unlocked)/i,
+];
+
+const isPlanClaim = (segment: string) => PLAN_CLAIM_PATTERNS.some((re) => re.test(segment));
+
+/**
+ * Removes any sentence — not just whole lines — that asserts something about
+ * the user's plan / subscription / paid access, in Arabic or English.
+ */
+export const stripPlanClaims = (value: string) => {
+  const input = String(value || "");
+  if (!input || !isPlanClaim(input)) return input;
+  const cleanedLines = input.split("\n").map((line) => {
+    if (!isPlanClaim(line)) return line;
+    // Drop only the offending sentence(s) inside the line when possible.
+    const sentences = line.split(/(?<=[.!؟?۔])\s+/);
+    const kept = sentences.filter((s) => !isPlanClaim(s));
+    const rebuilt = kept.join(" ").trim();
+    return isPlanClaim(rebuilt) ? "" : rebuilt;
+  });
+  return cleanedLines.join("\n").replace(/\n{3,}/g, "\n\n");
+};
 
 
-export const sanitizeLeakedToolText = (value: string) => stripLeakedToolText(value).trim();
+
+export const sanitizeLeakedToolText = (value: string) =>
+  stripPlanClaims(stripLeakedToolText(value)).trim();
 
 export const makeLeakedToolStreamSanitizer = () => {
   let buffer = "";

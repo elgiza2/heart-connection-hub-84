@@ -87,6 +87,7 @@ import { Message, MessageContent } from "@/components/prompt-kit/message";
 import ThinkingTrace from "./ThinkingTrace";
 import { estimateTokens, formatTokens } from "@/pages/chat/utils/estimateTokens";
 import { SecureVideo } from "@/components/chat/media/SecureVideo";
+import { stripPlanClaims } from "@/pages/chat/chatUtils";
 
 
 interface ChatMessageProps {
@@ -1038,7 +1039,12 @@ const ChatMessage = ({
   const { displayContent: rawDisplayContent, inlineImages } = useMemo(() => {
     if (role === "user") return { displayContent: content, inlineImages: [] as string[] };
     const normalized = normalizeResearchMarkdown(content);
-    return { displayContent: normalized.cleaned, inlineImages: normalized.extractedImages };
+    // Final render-time guard: no assistant text may claim a plan / paid status,
+    // regardless of which pipeline (chat, long-run, replay) produced it.
+    return {
+      displayContent: stripPlanClaims(normalized.cleaned),
+      inlineImages: normalized.extractedImages,
+    };
   }, [content, role]);
 
   // Smooth streaming: reveal assistant text character-by-character (~60fps)
@@ -1104,6 +1110,13 @@ const ChatMessage = ({
     if (answer && rawThoughts === answer) return "";
     return rawThoughts;
   })();
+  // Thinking steps recorded on the saved message, so reopening a conversation
+  // restores the same trace the user saw live instead of an empty panel.
+  const persistedThinkingSteps = useMemo<string[]>(() => {
+    const raw = (metadata as any)?.narrations;
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item: unknown) => String(item || "").trim()).filter(Boolean);
+  }, [metadata]);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [canvasOpen, setCanvasOpen] = useState(false);
 
@@ -1476,6 +1489,7 @@ const ChatMessage = ({
             steps={narrations!}
             status={searchStatus}
             active={isResearchActive}
+            running={hasRunningTool || toolActivity?.status === "running"}
           />
         )}
         {showLiveThinkingTrace && (
@@ -1484,6 +1498,7 @@ const ChatMessage = ({
             steps={[...(narrations || []), ...(activeThinkingSteps || [])]}
             text={reasoning}
             active
+            running={hasRunningTool || toolActivity?.status === "running"}
             className={content ? "mb-2" : ""}
           />
         )}
@@ -1494,11 +1509,21 @@ const ChatMessage = ({
           reasoning &&
           !showNarration &&
           !showLiveThinkingTrace &&
-          isStreaming && <ThinkingTrace text={reasoning} status={searchStatus} active />}
+          isStreaming && (
+            <ThinkingTrace
+              text={reasoning}
+              status={searchStatus}
+              active
+              running={hasRunningTool || toolActivity?.status === "running"}
+            />
+          )}
 
-        {role === "assistant" && !isStreaming && !showNarration && !!thoughtsText && (
-          <ThinkingTrace text={thoughtsText} />
-        )}
+        {role === "assistant" &&
+          !isStreaming &&
+          !showNarration &&
+          (!!thoughtsText || persistedThinkingSteps.length > 0) && (
+            <ThinkingTrace text={thoughtsText} steps={persistedThinkingSteps} />
+          )}
         {role === "assistant" && interrupted && !isStreaming && (
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
             <span className="flex-1">The previous response was interrupted.</span>

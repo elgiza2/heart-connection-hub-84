@@ -228,6 +228,16 @@ export async function runChatStreamTurn(opts: RunChatStreamTurnOptions): Promise
   const streamStartedAt = Date.now();
   let firstTokenAt: number | null = null;
   const sanitizeStreamChunk = makeLeakedToolStreamSanitizer();
+  // Every narration line of this turn, kept so the thinking trace survives
+  // leaving and re-entering the conversation.
+  const turnNarrations: string[] = [];
+  const narrate = (text: string) => {
+    const value = String(text || "").trim();
+    if (value && turnNarrations[turnNarrations.length - 1] !== value) {
+      turnNarrations.push(value);
+    }
+    pushNarration(text);
+  };
 
   const upsertAssistantToolPart = (part: ToolPart) => {
     const existing = assistantToolParts.findIndex((p) => p.id === part.id);
@@ -272,6 +282,7 @@ export async function runChatStreamTurn(opts: RunChatStreamTurnOptions): Promise
     };
     if (assistantToolParts.length > 0) metadata.toolParts = assistantToolParts;
     if (assistantReasoning.trim()) metadata.reasoning = assistantReasoning;
+    if (turnNarrations.length > 0) metadata.narrations = turnNarrations.slice(-60);
     if (isDeepResearch && researchSources.length > 0) {
       metadata.researchSources = researchSources.slice(0, 40).map((source) => ({
         title: source.title,
@@ -680,7 +691,7 @@ export async function runChatStreamTurn(opts: RunChatStreamTurnOptions): Promise
         setSearchStatus(normalizedStatus);
         // Every status also lands in the live activity log so the thinking
         // badge can be expanded to see what actually happened this turn.
-        pushNarration(normalizedStatus);
+        narrate(normalizedStatus);
         setIsThinking(true);
       }
     },
@@ -696,7 +707,7 @@ export async function runChatStreamTurn(opts: RunChatStreamTurnOptions): Promise
         return;
       }
       if (ev === "narration") {
-        pushNarration(String(payload.text || ""));
+        narrate(String(payload.text || ""));
       } else if (ev === "narration_start") {
         setNarrations((prev) => [...prev, ""]);
       } else if (ev === "narration_chunk") {
@@ -726,7 +737,7 @@ export async function runChatStreamTurn(opts: RunChatStreamTurnOptions): Promise
           const taskId = String(
             payload.call_id || `${payload.name || "tool"}-${Date.now()}-${Math.random()}`,
           );
-          pushNarration(`→ ${prettyToolLabel(payload.name, payload.target)}`);
+          narrate(`→ ${prettyToolLabel(payload.name, payload.target)}`);
           setSearchStatus(prettyToolLabel(payload.name, payload.target));
           setToolActivity({
             name: String(payload.name || ""),
@@ -805,7 +816,7 @@ export async function runChatStreamTurn(opts: RunChatStreamTurnOptions): Promise
             const result: any = payload?.result;
             if (result?.paywall || result?.error) videoGenerationActive = false;
           }
-          pushNarration(
+          narrate(
             `${payload.ok ? "✓" : "✕"} ${prettyToolLabel(payload.name, payload.target)}`,
           );
           setToolActivity((prev) =>

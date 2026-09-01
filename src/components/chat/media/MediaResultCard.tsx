@@ -104,7 +104,7 @@ export default function MediaResultCard({
 
               {/* Tile */}
               <div
-                className={`relative w-full flex items-center justify-center overflow-hidden rounded-2xl ${aspectClass} ${
+                className={`relative w-full flex items-center justify-center overflow-hidden rounded-3xl ${aspectClass} ${
                   r.status === "done" && r.url
                     ? "bg-transparent"
                     : "bg-foreground/[0.045]"
@@ -120,7 +120,7 @@ export default function MediaResultCard({
                         controls
                         playsInline
                         preload="metadata"
-                        className="w-full h-full object-cover rounded-2xl"
+                        className="w-full h-full object-cover rounded-3xl"
                       />
                       <GlassDownload
                         onClick={() =>
@@ -134,12 +134,12 @@ export default function MediaResultCard({
                   ) : (
                     <>
                       <motion.img
-                        initial={{ opacity: 0, scale: 1.02, filter: "blur(6px)" }}
-                        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                        transition={{ duration: 0.45 }}
+                        initial={{ opacity: 0, scale: 1.01 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.35, ease: "easeOut" }}
                         src={r.url}
                         alt={r.title}
-                        className="w-full h-full object-cover rounded-2xl"
+                        className="w-full h-full object-cover rounded-3xl"
                       />
                       <GlassDownload
                         onClick={() =>
@@ -176,7 +176,7 @@ export default function MediaResultCard({
 
       {/* ── Merge into one video ───────────────────────────────────── */}
       {(canMerge || mergeStatus !== "idle" || finalVideoUrl) && (
-        <div className="sm:col-span-2 mt-1 rounded-2xl border border-border/60 bg-card/60 backdrop-blur p-3 space-y-2">
+        <div className="sm:col-span-2 mt-1 rounded-3xl border border-border/60 bg-card/60 backdrop-blur p-3 space-y-2">
           {finalVideoUrl ? (
             <>
               <div className="flex items-center gap-2 text-[12px] font-medium">
@@ -262,18 +262,7 @@ function RunningTile({ progress, previewUrl }: { progress?: number; previewUrl?:
         />
       ) : null}
 
-      {/* Diagonal shimmer stripes sweeping across the tile */}
-      <motion.div
-        className="absolute inset-y-0 -inset-x-1/2 pointer-events-none"
-        style={{
-          background:
-            "repeating-linear-gradient(115deg, transparent 0 40px, hsl(var(--foreground) / 0.05) 40px 80px, transparent 80px 120px)",
-        }}
-        animate={{ x: ["-30%", "40%"] }}
-        transition={{ duration: 3.2, ease: "linear", repeat: Infinity }}
-      />
-
-      {/* Single soft sweep highlight on top */}
+      {/* Single soft sweep highlight */}
       <motion.div
         className="absolute inset-y-0 -inset-x-1/2 pointer-events-none"
         style={{
@@ -283,6 +272,18 @@ function RunningTile({ progress, previewUrl }: { progress?: number; previewUrl?:
         animate={{ x: ["-40%", "140%"] }}
         transition={{ duration: 2.4, ease: "easeInOut", repeat: Infinity }}
       />
+
+      {!previewUrl && (
+        <div className="absolute inset-0 grid place-items-center pointer-events-none">
+          <motion.span
+            className="grid h-11 w-11 place-items-center rounded-full bg-background/50 backdrop-blur-sm"
+            animate={{ scale: [1, 1.12, 1], opacity: [0.75, 1, 0.75] }}
+            transition={{ duration: 1.8, ease: "easeInOut", repeat: Infinity }}
+          >
+            <MegsyStar className="h-5 w-5 text-[var(--megsy-blue)]" />
+          </motion.span>
+        </div>
+      )}
 
       {/* Soft breathing overlay */}
       <motion.div
