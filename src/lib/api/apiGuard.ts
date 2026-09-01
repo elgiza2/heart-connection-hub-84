@@ -55,9 +55,7 @@ function localRateLimit(endpoint: string, key: string): { ok: boolean; retryAfte
 
 function clientIp(headers: Headers): string {
   return (
-    headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    headers.get("x-real-ip") ||
-    "unknown"
+    headers.get("x-forwarded-for")?.split(",")[0]?.trim() || headers.get("x-real-ip") || "unknown"
   );
 }
 
@@ -93,7 +91,10 @@ export async function guardApiRequest(request: Request, endpoint: string): Promi
   const auth = await authenticateRequest(request);
   if (!auth) return { ok: false, status: 401, error: "Unauthorized" };
 
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  const token = request.headers
+    .get("authorization")
+    ?.replace(/^Bearer\s+/i, "")
+    .trim();
   const rule = RATE_LIMITS[endpoint] ?? RATE_LIMITS.default;
   let limited: { ok: boolean; retryAfter: number };
 

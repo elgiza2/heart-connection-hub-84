@@ -29,7 +29,10 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response(JSON.stringify(body), { status, headers });
   } catch (err) {
     return new Response(
-      JSON.stringify({ text: "", error: err instanceof Error ? err.message : "transcription failed" }),
+      JSON.stringify({
+        text: "",
+        error: err instanceof Error ? err.message : "transcription failed",
+      }),
       { status: 500, headers },
     );
   }

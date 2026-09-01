@@ -11,7 +11,10 @@ export default async function handler(req: Request): Promise<Response> {
   const headers = apiHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ ok: false, error: "Method not allowed" }), { status: 405, headers });
+    return new Response(JSON.stringify({ ok: false, error: "Method not allowed" }), {
+      status: 405,
+      headers,
+    });
   }
   const guard = guardPublicRequest(req, "clerk", 20, 5 * 60 * 1000);
   if (!guard.ok) return guardResponse(guard, headers);

@@ -14,9 +14,10 @@ export default async function handler(req: Request): Promise<Response> {
   const guard = await guardApiRequest(req, "read-url");
   if (!guard.ok) return guardResponse(guard, headers);
 
-  const body = (await req.json().catch(() => null)) as
-    | { urls?: string[]; maxChars?: number }
-    | null;
+  const body = (await req.json().catch(() => null)) as {
+    urls?: string[];
+    maxChars?: number;
+  } | null;
 
   try {
     const pages = await readUrls(

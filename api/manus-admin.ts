@@ -16,7 +16,10 @@ export default async function handler(req: Request): Promise<Response> {
   const cors = apiHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: cors });
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: cors,
+    });
   }
   const guard = guardPublicRequest(req, "manus-admin", 10, 15 * 60 * 1000);
   if (!guard.ok) return guardResponse(guard, cors);

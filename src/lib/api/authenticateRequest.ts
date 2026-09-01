@@ -34,10 +34,13 @@ export function apiHeaders(request: Request): Record<string, string> {
   if (origin === "https://id-preview--5db12946-613d-4ff3-84fc-3608bdee3f03.lovable.app") {
     allowed.add(origin);
   }
-  if (process.env.NODE_ENV !== "production" && origin?.startsWith("http://localhost:")) allowed.add(origin);
+  if (process.env.NODE_ENV !== "production" && origin?.startsWith("http://localhost:"))
+    allowed.add(origin);
 
   return {
-    ...(origin && allowed.has(origin) ? { "Access-Control-Allow-Origin": origin, Vary: "Origin" } : {}),
+    ...(origin && allowed.has(origin)
+      ? { "Access-Control-Allow-Origin": origin, Vary: "Origin" }
+      : {}),
     "Access-Control-Allow-Headers": "authorization, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json",

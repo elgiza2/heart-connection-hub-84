@@ -34,17 +34,25 @@ async function requestProvider(path: string, method: string, token: string, body
 export default async function handler(request: Request): Promise<Response> {
   const headers = apiHeaders(request);
   if (request.method === "OPTIONS") return new Response("ok", { headers });
-  if (request.method !== "POST") return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers });
+  if (request.method !== "POST")
+    return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers });
   const guard = await guardApiRequest(request, "render-pdf");
   if (!guard.ok) return guardResponse(guard, headers);
 
   const parsed = InputSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid document" }), { status: 400, headers });
+  if (!parsed.success)
+    return new Response(JSON.stringify({ error: "Invalid document" }), { status: 400, headers });
   const token = process.env.TRANSACTIONAL_API_KEY;
-  if (!token) return new Response(JSON.stringify({ error: "PDF export is not configured" }), { status: 503, headers });
+  if (!token)
+    return new Response(JSON.stringify({ error: "PDF export is not configured" }), {
+      status: 503,
+      headers,
+    });
 
   try {
-    const created = await requestProvider("/documents", "POST", token, { name: parsed.data.title || "document" });
+    const created = await requestProvider("/documents", "POST", token, {
+      name: parsed.data.title || "document",
+    });
     const id = Number(created?.id);
     const uuid = String(created?.uuid || "");
     if (!id || !uuid) throw new Error("Invalid provider response");
@@ -53,10 +61,19 @@ export default async function handler(request: Request): Promise<Response> {
       framework: "TAILWIND",
       format: "A4",
     });
-    const generated = await requestProvider("/generate", "POST", token, { documentId: uuid, variables: {} });
+    const generated = await requestProvider("/generate", "POST", token, {
+      documentId: uuid,
+      variables: {},
+    });
     if (!generated?.url) throw new Error("PDF URL missing");
-    return new Response(JSON.stringify({ url: generated.url, documentId: uuid }), { status: 200, headers });
+    return new Response(JSON.stringify({ url: generated.url, documentId: uuid }), {
+      status: 200,
+      headers,
+    });
   } catch {
-    return new Response(JSON.stringify({ error: "Could not render PDF" }), { status: 502, headers });
+    return new Response(JSON.stringify({ error: "Could not render PDF" }), {
+      status: 502,
+      headers,
+    });
   }
 }
