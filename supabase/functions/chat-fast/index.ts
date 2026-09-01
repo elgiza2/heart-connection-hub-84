@@ -24,7 +24,8 @@ const FAST_SYSTEM = `You are MEGSY. Answer directly, accurately, and concisely i
 
 // Route obvious tool/task requests before contacting the model. This keeps the
 // model stream safe to paint immediately instead of buffering its first tokens.
-const COMPLEX_INTENT = /(?:https?:\/\/|ابحث|بحث (?:في|على) (?:الويب|النت)|الطقس|طقس|الأخبار|اخبار|سعر (?:اليوم|الآن)|حالي[ةاً]|افتح (?:موقع|رابط)|شغ[ّ]?ل (?:كود|أمر)|نف[ّ]?ذ|أنشئ (?:صورة|فيديو|ملف|عرض|جدول)|اصنع (?:صورة|فيديو)|ارسل (?:بريد|إيميل)|البريد|الإيميل|التقويم|حجز|اربط|تكامل|مرفق|ملف|pdf|excel|powerpoint|image|video|audio|browse|search (?:the )?web|weather|news|current price|latest|run (?:code|command)|terminal|send (?:an )?email|calendar|connector|integration)/i;
+const COMPLEX_INTENT =
+  /(?:https?:\/\/|ابحث|بحث (?:في|على) (?:الويب|النت)|الطقس|طقس|الأخبار|اخبار|سعر (?:اليوم|الآن)|حالي[ةاً]|افتح (?:موقع|رابط)|شغ[ّ]?ل (?:كود|أمر)|نف[ّ]?ذ|أنشئ (?:صورة|فيديو|ملف|عرض|جدول)|اصنع (?:صورة|فيديو)|ارسل (?:بريد|إيميل)|البريد|الإيميل|التقويم|حجز|اربط|تكامل|مرفق|ملف|pdf|excel|powerpoint|image|video|audio|browse|search (?:the )?web|weather|news|current price|latest|run (?:code|command)|terminal|send (?:an )?email|calendar|connector|integration)/i;
 
 function needsFullChat(messages: Msg[]): boolean {
   const lastUser = [...messages].reverse().find((message) => message.role === "user");

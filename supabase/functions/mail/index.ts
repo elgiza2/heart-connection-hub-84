@@ -14,7 +14,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { sendSmtp, smtpConfigured } from "../_shared/smtp.ts";
 import { renderBrandEmail } from "../_shared/email-templates/brand.ts";
 
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -38,9 +37,20 @@ function json(body: unknown, status = 200) {
 }
 
 const SPAM_WORDS = [
-  "viagra", "lottery", "winner", "crypto giveaway", "free money", "wire transfer",
-  "bitcoin doubler", "inheritance", "click here now", "nigerian prince",
-  "verify your account immediately", "casino", "porn", "sex chat",
+  "viagra",
+  "lottery",
+  "winner",
+  "crypto giveaway",
+  "free money",
+  "wire transfer",
+  "bitcoin doubler",
+  "inheritance",
+  "click here now",
+  "nigerian prince",
+  "verify your account immediately",
+  "casino",
+  "porn",
+  "sex chat",
 ];
 
 /** Crude but predictable spam heuristic (0-100). */
@@ -137,7 +147,9 @@ Deno.serve(async (req) => {
   if (action === "ensure") return json({ mailbox: box });
 
   if (action === "send") {
-    const to = String(payload.to || "").trim().toLowerCase();
+    const to = String(payload.to || "")
+      .trim()
+      .toLowerCase();
     const subject = String(payload.subject || "").slice(0, 300);
     const text = String(payload.text || "").slice(0, 50_000);
     const rawHtml = payload.html ? String(payload.html).slice(0, 200_000) : null;
@@ -231,7 +243,6 @@ Deno.serve(async (req) => {
     } else {
       status = "queued";
     }
-
 
     const { data: sent, error: sentErr } = await admin
       .from("mail_messages")

@@ -5,13 +5,18 @@
  * SMTP. Enable it in Supabase Dashboard → Authentication → Hooks → Send Email.
  */
 import { sendSmtp, smtpConfigured } from "../_shared/smtp.ts";
-import { renderCleanEmail, toPlainText, type MailLang } from "../_shared/email-templates/campaign.ts";
+import {
+  renderCleanEmail,
+  toPlainText,
+  type MailLang,
+} from "../_shared/email-templates/campaign.ts";
 import { welcomeEmail } from "../_shared/email-templates/copy.ts";
 import { Webhook } from "npm:standardwebhooks@1.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, webhook-id, webhook-timestamp, webhook-signature",
+  "Access-Control-Allow-Headers":
+    "authorization, content-type, webhook-id, webhook-timestamp, webhook-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -19,7 +24,10 @@ const SITE = "https://megsyai.com";
 const HERO = Deno.env.get("EMAIL_HERO_WELCOME") || Deno.env.get("EMAIL_HERO_CAMPAIGN") || "";
 
 const json = (b: unknown, status = 200) =>
-  new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  new Response(JSON.stringify(b), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
 function pickLang(user: Record<string, unknown>): MailLang {
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
