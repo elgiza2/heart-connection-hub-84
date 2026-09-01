@@ -262,18 +262,7 @@ function RunningTile({ progress, previewUrl }: { progress?: number; previewUrl?:
         />
       ) : null}
 
-      {/* Diagonal shimmer stripes sweeping across the tile */}
-      <motion.div
-        className="absolute inset-y-0 -inset-x-1/2 pointer-events-none"
-        style={{
-          background:
-            "repeating-linear-gradient(115deg, transparent 0 40px, hsl(var(--foreground) / 0.05) 40px 80px, transparent 80px 120px)",
-        }}
-        animate={{ x: ["-30%", "40%"] }}
-        transition={{ duration: 3.2, ease: "linear", repeat: Infinity }}
-      />
-
-      {/* Single soft sweep highlight on top */}
+      {/* Single soft sweep highlight */}
       <motion.div
         className="absolute inset-y-0 -inset-x-1/2 pointer-events-none"
         style={{
@@ -283,6 +272,18 @@ function RunningTile({ progress, previewUrl }: { progress?: number; previewUrl?:
         animate={{ x: ["-40%", "140%"] }}
         transition={{ duration: 2.4, ease: "easeInOut", repeat: Infinity }}
       />
+
+      {!previewUrl && (
+        <div className="absolute inset-0 grid place-items-center pointer-events-none">
+          <motion.span
+            className="grid h-11 w-11 place-items-center rounded-full bg-background/50 backdrop-blur-sm"
+            animate={{ scale: [1, 1.12, 1], opacity: [0.75, 1, 0.75] }}
+            transition={{ duration: 1.8, ease: "easeInOut", repeat: Infinity }}
+          >
+            <MegsyStar className="h-5 w-5 text-[var(--megsy-blue)]" />
+          </motion.span>
+        </div>
+      )}
 
       {/* Soft breathing overlay */}
       <motion.div
