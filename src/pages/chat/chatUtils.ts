@@ -34,7 +34,13 @@ export const stripLeakedToolText = (value: string) =>
     .replace(/<tool_call[\s\S]*?(?:<\/tool_call>|$)/gi, "")
     .replace(/<function_call[\s\S]*?(?:<\/function_call>|$)/gi, "")
     .replace(/\$\{tool_code\}\s*/gi, "")
-    .replace(/(?:^|\n)[^\n]*(?:print\s*\(\s*)?default_api\.[^\n]*(?:\n|$)/gi, "\n");
+    .replace(/(?:^|\n)[^\n]*(?:print\s*\(\s*)?default_api\.[^\n]*(?:\n|$)/gi, "\n")
+    // The model must never assert anything about the user's plan/subscription.
+    // Drop any line that claims a Free/Premium/Max status or paid-feature access.
+    .replace(
+      /(?:^|\n)[^\n]*(?:Premium\s*\/\s*Max|مشترك\s+(?:Premium|Max|بريميوم)|حسابك\s+(?:مش\s+)?مجاني|your account is (?:not )?free|you(?:'re| are) (?:on|subscribed to) (?:the )?(?:Premium|Max|Pro) (?:plan|subscription))[^\n]*(?=\n|$)/gi,
+      "",
+    );
 
 
 export const sanitizeLeakedToolText = (value: string) => stripLeakedToolText(value).trim();
