@@ -149,9 +149,17 @@ const ThinkingTrace = ({
       >
         {active ? (
           ToolIcon ? (
-            <ToolIcon className="h-3.5 w-3.5 shrink-0 text-[var(--megsy-blue)] motion-safe:animate-pulse" />
+            <ToolIcon
+              className={`h-3.5 w-3.5 shrink-0 text-[var(--megsy-blue)] ${
+                running ? "motion-safe:animate-pulse" : ""
+              }`}
+            />
           ) : (
-            <MegsyStar className="h-3.5 w-3.5 shrink-0 text-[var(--megsy-blue)] motion-safe:animate-pulse" />
+            <MegsyStar
+              className={`h-3.5 w-3.5 shrink-0 text-[var(--megsy-blue)] ${
+                running ? "motion-safe:animate-pulse" : ""
+              }`}
+            />
           )
         ) : (
           <BrandLogo className="h-3.5 w-3.5 shrink-0" />
