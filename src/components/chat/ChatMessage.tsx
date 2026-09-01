@@ -1852,7 +1852,7 @@ const ChatMessage = ({
                 const innerWithStar = (
                   <div className="relative">
                     {inner}
-                    {isStreaming && (
+                    {isStreaming && !!bodyText && (
                       <span className="inline-flex ms-1 align-baseline">
                         <MegsyStarBrand className="h-3.5 w-3.5 text-[var(--megsy-blue)]" />
                       </span>
