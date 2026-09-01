@@ -60,6 +60,7 @@ const ThinkingTrace = ({
   steps,
   text,
   active,
+  running,
   tool,
   defaultOpen,
   className = "",
