@@ -87,6 +87,7 @@ import { Message, MessageContent } from "@/components/prompt-kit/message";
 import ThinkingTrace from "./ThinkingTrace";
 import { estimateTokens, formatTokens } from "@/pages/chat/utils/estimateTokens";
 import { SecureVideo } from "@/components/chat/media/SecureVideo";
+import { stripPlanClaims } from "@/pages/chat/chatUtils";
 
 
 interface ChatMessageProps {
