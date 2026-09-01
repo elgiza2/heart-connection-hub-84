@@ -13,6 +13,8 @@
 - Protected profile, reward-task, workspace-credit, and member-usage fields with database triggers
 - Restricted shared email assets to the authenticated broadcast service
 - Added centralized per-user rate limits to paid Vercel API routes and throttled pre-auth bridges
+- Locked the rate-limit ledger against direct client reads/writes and restricted provider-key rotation RPCs to `service_role`
+- Unified preview and production API guards; browser probes confirm every protected paid route rejects unsigned requests before provider execution
 
 ## Open
 
