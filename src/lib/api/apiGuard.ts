@@ -6,6 +6,8 @@
  * whichever runtime serves it — goes through `guardApiRequest`.
  */
 import { authenticateRequest } from "./authenticateRequest";
+import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./supabaseServerConfig";
 
 export interface GuardResult {
   ok: boolean;
@@ -32,7 +34,7 @@ const RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
 type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
 
-function rateLimit(endpoint: string, key: string): { ok: boolean; retryAfter: number } {
+function localRateLimit(endpoint: string, key: string): { ok: boolean; retryAfter: number } {
   const rule = RATE_LIMITS[endpoint] ?? RATE_LIMITS.default;
   const now = Date.now();
   const id = `${endpoint}:${key}`;
@@ -53,10 +55,32 @@ function rateLimit(endpoint: string, key: string): { ok: boolean; retryAfter: nu
 
 function clientIp(headers: Headers): string {
   return (
-    headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    headers.get("x-real-ip") ||
-    "unknown"
+    headers.get("x-forwarded-for")?.split(",")[0]?.trim() || headers.get("x-real-ip") || "unknown"
   );
+}
+
+/** Best-effort pre-auth throttle for login/admin bridges that cannot require an app session. */
+export function guardPublicRequest(
+  request: Request,
+  endpoint: string,
+  limit: number,
+  windowMs: number,
+): GuardResult {
+  const key = `${clientIp(request.headers)}:${endpoint}`;
+  const now = Date.now();
+  const bucket = buckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return { ok: true, status: 200 };
+  }
+  bucket.count += 1;
+  if (bucket.count <= limit) return { ok: true, status: 200 };
+  return {
+    ok: false,
+    status: 429,
+    error: "Too many requests. Please try again later.",
+    retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+  };
 }
 
 /**
@@ -67,7 +91,34 @@ export async function guardApiRequest(request: Request, endpoint: string): Promi
   const auth = await authenticateRequest(request);
   if (!auth) return { ok: false, status: 401, error: "Unauthorized" };
 
-  const limited = rateLimit(endpoint, auth.user.id || clientIp(request.headers));
+  const token = request.headers
+    .get("authorization")
+    ?.replace(/^Bearer\s+/i, "")
+    .trim();
+  const rule = RATE_LIMITS[endpoint] ?? RATE_LIMITS.default;
+  let limited: { ok: boolean; retryAfter: number };
+
+  if (token) {
+    const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data, error } = await client.rpc("check_api_rate_limit", {
+      _endpoint: endpoint,
+      _request_limit: rule.limit,
+      _window_seconds: Math.ceil(rule.windowMs / 1000),
+    });
+    if (error || !Array.isArray(data) || !data[0]) {
+      console.error("Persistent API rate limiter failed", error?.message ?? "invalid response");
+      return { ok: false, status: 503, error: "Request protection is temporarily unavailable" };
+    }
+    limited = {
+      ok: data[0].allowed === true,
+      retryAfter: Number(data[0].retry_after ?? 0),
+    };
+  } else {
+    limited = localRateLimit(endpoint, auth.user.id || clientIp(request.headers));
+  }
   if (!limited.ok) {
     return {
       ok: false,

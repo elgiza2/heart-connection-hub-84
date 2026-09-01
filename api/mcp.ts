@@ -1,6 +1,7 @@
 /** @doc Serverless endpoint for the MCP gateway (tool servers the user connected). */
 import { handleMcpGateway, type GatewayPayload } from "../src/lib/mcp/gatewayCore";
-import { apiHeaders, authenticateRequest } from "../src/lib/api/authenticateRequest";
+import { apiHeaders } from "../src/lib/api/authenticateRequest";
+import { guardApiRequest, guardResponse } from "../src/lib/api/apiGuard";
 
 export const config = { runtime: "nodejs" };
 
@@ -8,11 +9,13 @@ export default async function handler(req: Request): Promise<Response> {
   const headers = apiHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ ok: false, error: "Method not allowed" }), { status: 405, headers });
+    return new Response(JSON.stringify({ ok: false, error: "Method not allowed" }), {
+      status: 405,
+      headers,
+    });
   }
-  if (!(await authenticateRequest(req))) {
-    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers });
-  }
+  const guard = await guardApiRequest(req, "mcp");
+  if (!guard.ok) return guardResponse(guard, headers);
 
   const body = (await req.json().catch(() => null)) as GatewayPayload | null;
   try {

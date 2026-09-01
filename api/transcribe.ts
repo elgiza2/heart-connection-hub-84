@@ -1,6 +1,7 @@
 /** @doc Serverless speech-to-text endpoint used by the composer mic button. */
 import { transcribeAudio } from "../src/lib/audio/transcribeCore";
-import { apiHeaders, authenticateRequest } from "../src/lib/api/authenticateRequest";
+import { apiHeaders } from "../src/lib/api/authenticateRequest";
+import { guardApiRequest, guardResponse } from "../src/lib/api/apiGuard";
 
 export const config = { runtime: "nodejs" };
 
@@ -10,9 +11,8 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers });
   }
-  if (!(await authenticateRequest(req))) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
-  }
+  const guard = await guardApiRequest(req, "transcribe");
+  if (!guard.ok) return guardResponse(guard, headers);
 
   try {
     const form = await req.formData();
@@ -29,7 +29,10 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response(JSON.stringify(body), { status, headers });
   } catch (err) {
     return new Response(
-      JSON.stringify({ text: "", error: err instanceof Error ? err.message : "transcription failed" }),
+      JSON.stringify({
+        text: "",
+        error: err instanceof Error ? err.message : "transcription failed",
+      }),
       { status: 500, headers },
     );
   }
