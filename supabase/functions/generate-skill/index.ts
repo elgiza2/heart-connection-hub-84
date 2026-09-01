@@ -62,7 +62,10 @@ Rules:
 - preferred_model: always null.`;
 
 function extractJson(text: string): Record<string, unknown> | null {
-  const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const cleaned = text
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start === -1 || end <= start) return null;
@@ -102,9 +105,9 @@ Deno.serve(async (req) => {
     );
   }
 
-  const body = (await req.json().catch(() => null)) as
-    | { messages?: { role: string; content: string }[] }
-    | null;
+  const body = (await req.json().catch(() => null)) as {
+    messages?: { role: string; content: string }[];
+  } | null;
   const history = (body?.messages ?? [])
     .filter((m) => typeof m?.content === "string" && m.content.trim())
     .slice(-12)
